@@ -38,15 +38,17 @@ func parseMessageTrueOrFalse(line string) bool {
 }
 
 // ParseMessage parses a message and its associated data.
-func ParseMessage(message []string) User {
+func (bot *Bot) ParseMessage(message []string) User {
 	var user User
 	user.Name = parseMessageValue(message[4])
-	user.Content = message[len(message)-1]                   // in the split passed in, the actual message should be the last element
 	user.IsSubscriber = parseMessageTrueOrFalse(message[10]) // determine if subscriber
 	user.IsModerator = parseMessageTrueOrFalse(message[8])   // determine if moderator
-	user.IsCommand = false
 
-	if user.Content[0] == '!' {
+	// This next bit feels horrendous, but it do be like that sometimes
+	actualMessage := strings.Split(message[len(message)-1], fmt.Sprintf("PRIVMSG #%s :", bot.ChannelName))
+	user.Content = actualMessage[1]
+
+	if user.Content[0] == '!' && len(user.Content) > 1 {
 		user.IsCommand = true
 	}
 

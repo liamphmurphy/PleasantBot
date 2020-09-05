@@ -7,6 +7,8 @@ PleasantBot is planned to be a full-stack application to help streamers moderate
 - Ban / purge users for using bad language
 - Misc. moderation for links, long messages etc. 
 
+A points system will be considered if deemed needed, though it is not a priority due to Twitch's own points system.
+
 ## Running
 
 To run the bot as of now, run the following command in the /src directory:
@@ -17,7 +19,7 @@ To run the bot as of now, run the following command in the /src directory:
 - Respect the OS's default settings for config locations using golang's os module.
 - Maintain a small database of user added commands, bannable words and more with SQLite.
 - Create API middle-man between backend and front-end UI
-- Add support for SSL/TLS
+- Add support for SSL/TLS (at the least by making sure it works behind Nginx)
 - Make it work in Docker
 
 # HappyBot
