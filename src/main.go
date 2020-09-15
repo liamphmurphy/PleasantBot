@@ -66,6 +66,7 @@ func main() {
 		}
 
 		message := pleasant.ParseMessage(lineSplit) // create readable message from the user
+		pleasant.FilterForSpam(message)
 		fmt.Printf("%s: %s\n", message.Name, message.Content)
 
 		if message.IsCommand { // if first character in a chat message is ! (unicoode value is 64), it's probably a command

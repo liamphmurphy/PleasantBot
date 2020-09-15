@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"regexp"
 
 	_ "github.com/mattn/go-sqlite3" // docs have a blank import so I'm using that
 	"github.com/spf13/viper"
@@ -23,6 +24,7 @@ type Bot struct {
 	Commands        []Command
 	BadWords        []BadWord
 	Quotes          []string
+	PermittedUsers  []string // list of users that can post links
 	DB              *sql.DB
 	DBPath          string
 	PurgeForLinks   bool
@@ -156,7 +158,11 @@ func Itob(i int) bool {
 
 // FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam
 func (bot *Bot) FilterForSpam(message User) {
-	if bot.PurgeForLinks { // check if message is a link
-
+	if bot.PurgeForLinks { // if enabled, check if message contains a link
+		// regex gathered from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+		urlRegex, _ := regexp.Compile(`[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
+		if urlRegex.MatchString(message.Content) {
+			bot.SendMessage("Please don't type links :)")
+		}
 	}
 }
