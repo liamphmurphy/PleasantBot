@@ -35,3 +35,25 @@ func (bot *Bot) ParseForBadWord(user User) {
 		}
 	}
 }
+
+// LoadBadWords loads all badwords from the databases
+// TODO: generalize this for all bot data
+func (bot *Bot) LoadBadWords() error {
+	rows, err := bot.DB.Query("select phrase, severity from badwords")
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+	for rows.Next() { // scan through results from query and assign to the Commands slice
+		var phrase string
+		var severity int
+		err = rows.Scan(&phrase, &severity)
+		if err != nil {
+			return err
+		}
+		badWord := BadWord{Phrase: phrase, Severity: severity}
+		bot.BadWords = append(bot.BadWords, badWord)
+	}
+	return nil
+}

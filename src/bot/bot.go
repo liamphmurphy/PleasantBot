@@ -15,15 +15,19 @@ import (
 
 // Bot struct contains the necessary data to run an instance of a bot
 type Bot struct {
-	ChannelName string
-	ServerName  string
-	OAuth       string
-	Name        string
-	Conn        net.Conn
-	Commands    []Command
-	BadWords    []BadWord
-	DB          *sql.DB
-	DBPath      string
+	ChannelName     string
+	ServerName      string
+	OAuth           string
+	Name            string
+	Conn            net.Conn
+	Commands        []Command
+	BadWords        []BadWord
+	Quotes          []string
+	DB              *sql.DB
+	DBPath          string
+	PurgeForLinks   bool
+	PurgeForLongMsg bool
+	Perms           []string // holds a list of users that can post a link
 }
 
 // writeConfig is run whenever the config.toml file doesn't exist, usually after a fresh download of the bot.
@@ -34,6 +38,8 @@ func writeConfig(path string) {
 	viper.SetDefault("ServerName", "irc.twitch.tv:6667")
 	viper.SetDefault("BotName", "<enter bot username here>")
 	viper.SetDefault("BotOAuth", "<bot oauth>")
+	viper.SetDefault("PurgeForLinks", true)
+	viper.SetDefault("PurgeForLongMsg", true)
 
 	viper.WriteConfigAs(path)
 	fmt.Println(fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.", path))
@@ -77,9 +83,20 @@ func CreateBot() *Bot {
 	bot.DB = db
 	bot.DBPath = dbFile
 
+	// load data
 	err = bot.LoadCommands()
 	if err != nil {
 		log.Fatalf("error loading commands from the database: %s\n", err)
+	}
+
+	err = bot.LoadQuotes()
+	if err != nil {
+		log.Fatalf("error loading quotes from the database: %s\n", err)
+	}
+
+	err = bot.LoadBadWords()
+	if err != nil {
+		log.Fatalf("error loading bannable words from the database: %s\n", err)
 	}
 
 	// assign bot values provided by the config file
@@ -87,6 +104,8 @@ func CreateBot() *Bot {
 	bot.ServerName = viper.GetString("ServerName")
 	bot.OAuth = viper.GetString("BotOAuth")
 	bot.Name = viper.GetString("BotName")
+	bot.PurgeForLinks = viper.GetBool("PurgeForLinks")
+	bot.PurgeForLongMsg = viper.GetBool("PurgeForLongMsg")
 
 	return &bot
 }
@@ -133,4 +152,11 @@ func Itob(i int) bool {
 	}
 
 	return false
+}
+
+// FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam
+func (bot *Bot) FilterForSpam(message User) {
+	if bot.PurgeForLinks { // check if message is a link
+
+	}
 }

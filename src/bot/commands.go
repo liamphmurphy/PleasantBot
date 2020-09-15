@@ -7,6 +7,7 @@ package bot
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -21,7 +22,7 @@ type Command struct {
 func (bot *Bot) AddCommandString(msg string) error {
 	msgSplit := strings.Split(msg, " ")
 	if len(msgSplit) < 2 || msgSplit[0][0] != '!' { // should contain at least the command name + one word or more as the response
-		return errors.New("Please make sure your addcom call is like so: !addcom !commandname <full text response for the command>")
+		return errors.New("please make sure your addcom call is like so: !addcom !commandname <full text response for the command>")
 	}
 
 	var newCmd Command // create new command
@@ -53,8 +54,11 @@ func (bot *Bot) FindCommand(key string) (Command, error) {
 func (bot *Bot) RemoveCommand(cmd string) bool {
 	cmdFound := false
 	index := 0
+
+	var name string // used for deleting from the database later
 	for i := range bot.Commands {
 		if bot.Commands[i].Name == cmd {
+			name = bot.Commands[i].Name
 			index = i
 			cmdFound = true
 		}
@@ -64,6 +68,8 @@ func (bot *Bot) RemoveCommand(cmd string) bool {
 	if cmdFound {
 		bot.Commands[index] = bot.Commands[len(bot.Commands)-1]
 		bot.Commands = bot.Commands[:len(bot.Commands)-1]
+
+		fmt.Println(bot.DeleteFromDB("commands", "commandname", name))
 	}
 	return cmdFound
 }
@@ -87,6 +93,29 @@ func (bot *Bot) DefaultCommands(msg string) bool {
 
 	case "!delcom":
 		bot.RemoveCommand(msgSplit[1])
+
+	case "!quote":
+		if msg == "!quote" { // if entire message is just !quote, user is asking for a random quote
+			quote, err := bot.RandomQuote()
+			if err != nil {
+				bot.SendMessage(fmt.Sprintf("Error finding a quote: %s", err))
+				return false
+			}
+			bot.SendMessage(quote)
+		} else { // otherwise, count on them at least attempting in getting a specific quote
+			id, err := strconv.Atoi(msgSplit[1])
+			if err != nil {
+				bot.SendMessage("id for the quote must be a valid positive integer")
+			}
+			quote, err := bot.GetQuote(id)
+			if err != nil {
+				bot.SendMessage(fmt.Sprintf("Error finding a quote: %s", err))
+				return false
+			}
+			bot.SendMessage(quote)
+		}
+	case "!addquote":
+		bot.AddQuote(strings.Join(msgSplit[1:], " "))
 
 	case "!subon": // turn on subscribers only mode
 		bot.SendMessage("/subscribers")
