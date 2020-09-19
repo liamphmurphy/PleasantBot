@@ -21,7 +21,7 @@ type Bot struct {
 	OAuth           string
 	Name            string
 	Conn            net.Conn
-	Commands        []Command
+	Commands        map[string]*CommandValue
 	BadWords        []BadWord
 	Quotes          []string
 	PermittedUsers  []string // list of users that can post links
@@ -86,6 +86,7 @@ func CreateBot() *Bot {
 	bot.DBPath = dbFile
 
 	// load data
+	bot.Commands = make(map[string]*CommandValue)
 	err = bot.LoadCommands()
 	if err != nil {
 		log.Fatalf("error loading commands from the database: %s\n", err)
@@ -154,6 +155,11 @@ func Itob(i int) bool {
 	}
 
 	return false
+}
+
+// AddPermittedUser adds a user to the PermittedUsers slice, allowing them to post a link without being purged
+func (bot *Bot) AddPermittedUser(username string) {
+	bot.PermittedUsers = append(bot.PermittedUsers, username)
 }
 
 // FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam

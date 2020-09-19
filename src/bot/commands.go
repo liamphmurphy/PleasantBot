@@ -11,9 +11,8 @@ import (
 	"strings"
 )
 
-// Command makes up a single command
-type Command struct {
-	Name           string
+// CommandValue makes up a single command, used as the value in the bot's underyling commands map
+type CommandValue struct {
 	Response       string
 	ModeratorPerms bool
 }
@@ -25,12 +24,10 @@ func (bot *Bot) AddCommandString(msg string) error {
 		return errors.New("please make sure your addcom call is like so: !addcom !commandname <full text response for the command>")
 	}
 
-	var newCmd Command // create new command
-	newCmd.Name = msgSplit[0]
-	newCmd.Response = strings.Join(msgSplit[1:], " ")
-	newCmd.ModeratorPerms = true
-	bot.Commands = append(bot.Commands, newCmd)
-	err := bot.InsertIntoDB("commands", []string{"commandname", "commandresponse", "modperms"}, []string{newCmd.Name, newCmd.Response, "0"})
+	key := msgSplit[0]
+	bot.Commands[key] = &CommandValue{Response: (strings.Join(msgSplit[1:], " ")), ModeratorPerms: true}
+
+	err := bot.InsertIntoDB("commands", []string{"commandname", "commandresponse", "modperms"}, []string{key, bot.Commands[key].Response, "0"})
 	if err != nil {
 		return err
 	}
@@ -38,40 +35,24 @@ func (bot *Bot) AddCommandString(msg string) error {
 }
 
 // FindCommand takes in a key (command name) and returns matching command, if found
-func (bot *Bot) FindCommand(key string) (Command, error) {
-	var com Command
-
-	// linear search for command. TODO: make this better
-	for i := range bot.Commands {
-		if bot.Commands[i].Name == key {
-			return bot.Commands[i], nil
-		}
+func (bot *Bot) FindCommand(key string) (CommandValue, error) {
+	var com *CommandValue
+	com, found := bot.Commands[key]
+	var err error
+	if !found {
+		err = errors.New("could not find command")
+		return CommandValue{Response: "nil", ModeratorPerms: false}, err
 	}
-	return com, errors.New("could not find command")
+	return *com, err
 }
 
-// RemoveCommand takes in a command name as a string, presumably from the chat, and removes it from the slice
-func (bot *Bot) RemoveCommand(cmd string) bool {
-	cmdFound := false
-	index := 0
-
-	var name string // used for deleting from the database later
-	for i := range bot.Commands {
-		if bot.Commands[i].Name == cmd {
-			name = bot.Commands[i].Name
-			index = i
-			cmdFound = true
-		}
+// RemoveCommand takes in a command name as a string, presumably from the chat, and removes it
+func (bot *Bot) RemoveCommand(key string) bool {
+	var found bool
+	if _, found := bot.Commands[key]; found {
+		delete(bot.Commands, key)
 	}
-
-	// many thanks to this article for the best way to remove an item from a slice https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/
-	if cmdFound {
-		bot.Commands[index] = bot.Commands[len(bot.Commands)-1]
-		bot.Commands = bot.Commands[:len(bot.Commands)-1]
-
-		fmt.Println(bot.DeleteFromDB("commands", "commandname", name))
-	}
-	return cmdFound
+	return found
 }
 
 // DefaultCommands takes in a potential command request and sees if it is one of the default commands
@@ -145,8 +126,7 @@ func (bot *Bot) LoadCommands() error {
 		if err != nil {
 			return err
 		}
-		com := Command{Name: name, Response: response, ModeratorPerms: Itob(perm)}
-		bot.Commands = append(bot.Commands, com)
+		bot.Commands[name] = &CommandValue{Response: response, ModeratorPerms: Itob(perm)}
 	}
 	return nil
 }
