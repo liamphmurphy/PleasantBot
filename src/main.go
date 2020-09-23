@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Pass info to HTTP request
-	fmt.Fprintf(pleasant.Conn, "PASS %s\r\n", pleasant.OAuth)
+	fmt.Fprintf(pleasant.Conn, "PASS %s\r\n", pleasant.GetOAuth())
 	fmt.Fprintf(pleasant.Conn, "NICK %s\r\n", pleasant.Name)
 	fmt.Fprintf(pleasant.Conn, "JOIN #%s\r\n", pleasant.ChannelName)
 
@@ -46,6 +46,10 @@ func main() {
 	msgRegex, _ := regexp.Compile("[;]+") // regexp object used to split messages
 
 	fmt.Printf("Bot: %s\nChannel: %s\n", pleasant.Name, pleasant.ChannelName)
+
+	if pleasant.EnableServer {
+		go pleasant.StartAPI()
+	}
 
 	// keep reading messages until some end condition is reached
 	for {
@@ -69,7 +73,7 @@ func main() {
 		pleasant.FilterForSpam(message)
 		fmt.Printf("%s: %s\n", message.Name, message.Content)
 
-		if message.IsCommand { // if first character in a chat message is ! (unicoode value is 64), it's probably a command
+		if message.IsCommand { // if first character in a chat message is !, it's probably a command
 			if pleasant.DefaultCommands(message.Content) { // see if message is a default command request
 				continue // match is found and the bot took action, move on
 			}

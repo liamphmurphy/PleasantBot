@@ -18,18 +18,21 @@ import (
 type Bot struct {
 	ChannelName     string
 	ServerName      string
-	OAuth           string
+	oauth           string
 	Name            string
 	Conn            net.Conn
 	Commands        map[string]*CommandValue
 	BadWords        []BadWord
 	Quotes          []string
-	PermittedUsers  []string // list of users that can post links
+	PermittedUsers  map[string]struct{} // list of users that can post links
 	DB              *sql.DB
 	DBPath          string
 	PurgeForLinks   bool
 	PurgeForLongMsg bool
+	LongMsgAmount   int
+	EnableServer    bool
 	Perms           []string // holds a list of users that can post a link
+	blah            string
 }
 
 // writeConfig is run whenever the config.toml file doesn't exist, usually after a fresh download of the bot.
@@ -42,6 +45,8 @@ func writeConfig(path string) {
 	viper.SetDefault("BotOAuth", "<bot oauth>")
 	viper.SetDefault("PurgeForLinks", true)
 	viper.SetDefault("PurgeForLongMsg", true)
+	viper.SetDefault("LongMsgAmount", 400)
+	viper.SetDefault("EnableServer", true)
 
 	viper.WriteConfigAs(path)
 	fmt.Println(fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.", path))
@@ -69,6 +74,7 @@ func CreateBot() *Bot {
 
 	var bot Bot
 	var db *sql.DB
+
 	// prepare Sqlite 3 database
 	dbFile := pleasantDir + "/pleasantbot.db"
 	if _, err := os.Stat(dbFile); os.IsNotExist(err) { // make database file if it doesn't exist
@@ -105,10 +111,12 @@ func CreateBot() *Bot {
 	// assign bot values provided by the config file
 	bot.ChannelName = viper.GetString("ChannelName")
 	bot.ServerName = viper.GetString("ServerName")
-	bot.OAuth = viper.GetString("BotOAuth")
+	bot.oauth = viper.GetString("BotOAuth")
 	bot.Name = viper.GetString("BotName")
 	bot.PurgeForLinks = viper.GetBool("PurgeForLinks")
 	bot.PurgeForLongMsg = viper.GetBool("PurgeForLongMsg")
+	bot.LongMsgAmount = viper.GetInt("LongMsgAmount")
+	bot.EnableServer = viper.GetBool("EnableServer")
 
 	return &bot
 }
@@ -126,7 +134,7 @@ func (bot *Bot) Connect() error {
 // ChannelConnect writes the necessary scopes to Twitch
 func (bot *Bot) ChannelConnect() {
 	// Pass info to HTTP request
-	fmt.Fprintf(bot.Conn, "PASS %s\r\n", bot.OAuth)
+	fmt.Fprintf(bot.Conn, "PASS %s\r\n", bot.oauth)
 	fmt.Fprintf(bot.Conn, "NICK %s\r\n", bot.Name)
 	fmt.Fprintf(bot.Conn, "JOIN #%s\r\n", bot.ChannelName)
 
@@ -157,18 +165,42 @@ func Itob(i int) bool {
 	return false
 }
 
-// AddPermittedUser adds a user to the PermittedUsers slice, allowing them to post a link without being purged
-func (bot *Bot) AddPermittedUser(username string) {
-	bot.PermittedUsers = append(bot.PermittedUsers, username)
-}
-
 // FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam
 func (bot *Bot) FilterForSpam(message User) {
 	if bot.PurgeForLinks { // if enabled, check if message contains a link
 		// regex gathered from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 		urlRegex, _ := regexp.Compile(`[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 		if urlRegex.MatchString(message.Content) {
-			bot.SendMessage("Please don't type links :)")
+			if _, permitted := bot.PermittedUsers[message.Name]; permitted || message.IsSubscriber || message.IsModerator {
+				delete(bot.PermittedUsers, message.Name) // found, do nothing except delete from the map
+			} else {
+				bot.purgeUser(message.Name) // not permitted, so purge user
+			}
 		}
 	}
+
+	if bot.PurgeForLongMsg { // if enabled, check if a message is very long
+		if len(message.Content) >= bot.LongMsgAmount {
+			bot.purgeUser(message.Name)
+		}
+	}
+}
+
+// AddPermittedUser adds a user to the PermittedUsers slice, allowing them to post a link without being purged
+func (bot *Bot) AddPermittedUser(username string) {
+	bot.PermittedUsers[username] = struct{}{}
+}
+
+// purges a user by sending a timeout of 1 second
+func (bot *Bot) purgeUser(username string) {
+	bot.SendMessage(fmt.Sprintf("/timeout %s 1", username))
+}
+
+func (bot *Bot) banUser(username string) {
+	bot.SendMessage(fmt.Sprintf("/ban %s", username))
+}
+
+// GetOAuth returns the bot's oauth token
+func (bot *Bot) GetOAuth() string {
+	return bot.oauth
 }
