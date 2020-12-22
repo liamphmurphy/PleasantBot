@@ -21,7 +21,7 @@ type Bot struct {
 	oauth           string
 	Name            string
 	Conn            net.Conn
-	Commands        map[string]*CommandValue
+	Commands        map[string]*CommandValue `json:"commands"`
 	BadWords        []BadWord
 	Quotes          []string
 	PermittedUsers  map[string]struct{} // list of users that can post links
@@ -168,7 +168,7 @@ func Itob(i int) bool {
 // FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam
 func (bot *Bot) FilterForSpam(message User) {
 	if bot.PurgeForLinks { // if enabled, check if message contains a link
-		// regex gathered from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
+		// regex obtained from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 		urlRegex, _ := regexp.Compile(`[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 		if urlRegex.MatchString(message.Content) {
 			if _, permitted := bot.PermittedUsers[message.Name]; permitted || message.IsSubscriber || message.IsModerator {

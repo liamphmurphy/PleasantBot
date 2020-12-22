@@ -1,6 +1,9 @@
 package bot
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+)
 
 // return JSON representation of the commands
 func (bot *Bot) getComHandler(c *gin.Context) {
@@ -15,6 +18,8 @@ func (bot *Bot) getBotData(c *gin.Context) {
 // StartAPI starts the gin router for the bot's API
 func (bot *Bot) StartAPI() {
 	router := gin.Default()
+
+	router.Use(cors.Default())
 	router.GET("/getcoms", bot.getComHandler)
 	router.GET("/getbot", bot.getBotData)
 	router.Run()
