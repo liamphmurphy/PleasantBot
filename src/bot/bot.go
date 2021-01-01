@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3" // docs have a blank import so I'm using that
 	"github.com/spf13/viper"
@@ -16,23 +17,25 @@ import (
 
 // Bot struct contains the necessary data to run an instance of a bot
 type Bot struct {
-	ChannelName     string
-	ServerName      string
-	oauth           string
-	Name            string
-	Conn            net.Conn
-	Commands        map[string]*CommandValue `json:"commands"`
-	BadWords        []BadWord
-	Quotes          []string
-	PermittedUsers  map[string]struct{} // list of users that can post links
-	DB              *sql.DB
-	DBPath          string
-	PurgeForLinks   bool
-	PurgeForLongMsg bool
-	LongMsgAmount   int
-	EnableServer    bool
-	Perms           []string // holds a list of users that can post a link
-	blah            string
+	ChannelName      string
+	ServerName       string
+	oauth            string `json:"-"`
+	Name             string
+	Conn             net.Conn `json:"-"`
+	DB               *sql.DB  `json:"-"`
+	DBPath           string   `json:"-"`
+	PurgeForLinks    bool
+	PurgeForLongMsg  bool
+	LongMsgAmount    int
+	EnableServer     bool
+	PostLinkPerm     uint8
+	Perms            []string                 `json:"-"` // holds a list of users that can post a link
+	Commands         map[string]*CommandValue `json:"-"`
+	BadWords         []BadWord                `json:"-"`
+	Quotes           map[int]*QuoteValues     `json:"-"`
+	PermittedUsers   map[string]struct{}      // list of users that can post links
+	CommandDBColumns []string                 `json:"-"` // used for InsertIntoDB calls
+	QuoteDBColumns   []string                 `json:"-"`
 }
 
 // writeConfig is run whenever the config.toml file doesn't exist, usually after a fresh download of the bot.
@@ -47,6 +50,7 @@ func writeConfig(path string) {
 	viper.SetDefault("PurgeForLongMsg", true)
 	viper.SetDefault("LongMsgAmount", 400)
 	viper.SetDefault("EnableServer", true)
+	viper.SetDefault("PostLinkPerm", uint(1)) // Minimum permission needed for non-purging links, in this case subscriber
 
 	viper.WriteConfigAs(path)
 	fmt.Println(fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.", path))
@@ -98,6 +102,7 @@ func CreateBot() *Bot {
 		log.Fatalf("error loading commands from the database: %s\n", err)
 	}
 
+	bot.Quotes = make(map[int]*QuoteValues)
 	err = bot.LoadQuotes()
 	if err != nil {
 		log.Fatalf("error loading quotes from the database: %s\n", err)
@@ -117,6 +122,8 @@ func CreateBot() *Bot {
 	bot.PurgeForLongMsg = viper.GetBool("PurgeForLongMsg")
 	bot.LongMsgAmount = viper.GetInt("LongMsgAmount")
 	bot.EnableServer = viper.GetBool("EnableServer")
+	bot.CommandDBColumns = []string{"commandname", "commandresponse", "perm", "count"}
+	bot.QuoteDBColumns = []string{"quote", "timestamp", "submitter"}
 
 	return &bot
 }
@@ -171,10 +178,11 @@ func (bot *Bot) FilterForSpam(message User) {
 		// regex obtained from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 		urlRegex, _ := regexp.Compile(`[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 		if urlRegex.MatchString(message.Content) {
-			if _, permitted := bot.PermittedUsers[message.Name]; permitted || message.IsSubscriber || message.IsModerator {
+			if _, permitted := bot.PermittedUsers[message.Name]; permitted || message.Perm >= bot.PostLinkPerm { // let user post if they are in the permit list or is a moderator / broadcaster
 				delete(bot.PermittedUsers, message.Name) // found, do nothing except delete from the map
 			} else {
 				bot.purgeUser(message.Name) // not permitted, so purge user
+				bot.SendMessage(fmt.Sprintf("%s, you do not have permissions to post links.", message.Name))
 			}
 		}
 	}
@@ -196,7 +204,8 @@ func (bot *Bot) purgeUser(username string) {
 	bot.SendMessage(fmt.Sprintf("/timeout %s 1", username))
 }
 
-func (bot *Bot) banUser(username string) {
+func (bot *Bot) banUser(username string, reason string) {
+	bot.InsertIntoDB("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
 	bot.SendMessage(fmt.Sprintf("/ban %s", username))
 }
 

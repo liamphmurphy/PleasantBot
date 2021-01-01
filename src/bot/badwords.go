@@ -20,7 +20,7 @@ func (bot *Bot) ParseForBadWord(user User) {
 			if bot.BadWords[i].Severity == 0 { // purge condition
 				bot.purgeUser(user.Name)
 			} else { // ban condition
-				bot.banUser(user.Name)
+				bot.banUser(user.Name, "inputting a banned word")
 			}
 		}
 	}
