@@ -10,12 +10,24 @@ import (
 	"net/textproto"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/murnux/pleasantbot/bot"
 )
 
 func main() {
 	pleasant := bot.CreateBot()
+
+	if pleasant.EnableServer {
+		go pleasant.StartAPI()
+	}
+
+	for {
+		if !pleasant.Authenticated {
+			time.Sleep(1 * time.Second)
+		}
+		break
+	}
 	var err error
 	pleasant.DB, err = sql.Open("sqlite3", pleasant.DBPath)
 	if err != nil {
@@ -47,14 +59,9 @@ func main() {
 
 	fmt.Printf("Bot: %s\nChannel: %s\n", pleasant.Name, pleasant.ChannelName)
 
-	if pleasant.EnableServer {
-		go pleasant.StartAPI()
-	}
-
 	// keep reading messages until some end condition is reached
 	for {
 		line, err := proto.ReadLine()
-		fmt.Println(line)
 		if err != nil {
 			fmt.Printf("error receiving message: %s\n", err)
 			os.Exit(1)

@@ -5,19 +5,25 @@ import Commands from './Commands';
 import Help from './Help';
 import Dashboard from './Dashboard';
 import Quotes from './Quotes';
+import Login from './Login';
 
 // bootstrap imports
 import Navbar from 'react-bootstrap/Navbar';
 import Nav from 'react-bootstrap/Nav';
+
+// services
+import {authenticated, sendToken} from './services/Auth'
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './css/style.css';
 import {
   BrowserRouter as Router,
   Switch,
-  Route
+  Route,
+  Redirect
 } from "react-router-dom";
 import Container from 'react-bootstrap/Container';
+
 
 // renders the nav bar
 function renderNavBar() {
@@ -34,6 +40,7 @@ function renderNavBar() {
             </Nav>
 
             <Nav>
+              <Nav.Link href="/login">Login</Nav.Link>
               <Nav.Link href="/help">Help</Nav.Link>
             </Nav>
           </Navbar.Collapse>
@@ -42,6 +49,10 @@ function renderNavBar() {
 }
 
 function App() {
+  if (document.location.hash != "") { 
+    sendToken(document.location.hash.substr(1)); // send new oauth token to backend
+  }
+
   return (
     <div>
       <Router>
@@ -49,8 +60,11 @@ function App() {
         <br /><br /><br />
         <Container>
           <Switch>
+            <Route exact path="/login">
+              <Login />
+            </Route>
             <Route exact path="/">
-              <Dashboard />
+              {authenticated() ? <Dashboard /> : <Redirect to="/login" />}
             </Route>
             <Route exact path="/commands">
               <Commands />

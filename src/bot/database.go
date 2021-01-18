@@ -18,6 +18,7 @@ func prepareDatabase(db *sql.DB) {
 	CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY, quote TEXT, timestamp TEXT, submitter TEXT);
 	CREATE TABLE IF NOT EXISTS ban_history (user TEXT, reason TEXT, timestamp TEXT);
 	CREATE TABLE IF NOT EXISTS chatters (username TEXT PRIMARY KEY, count INT);
+	CREATE TABLE IF NOT EXISTS timers (timername TEXT UNIQUE, message TEXT, minutes INTEGER);
 	`
 	_, err := db.Exec(stmt)
 	if err != nil {

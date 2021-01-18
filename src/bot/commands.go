@@ -28,7 +28,7 @@ func (bot *Bot) AddCommandString(msg string) error {
 	key := msgSplit[0]
 	bot.Commands[key] = &CommandValue{Response: (strings.Join(msgSplit[1:], " ")), Perm: "all", Count: 0}
 
-	err := bot.InsertIntoDB("commands", bot.CommandDBColumns, []string{key, bot.Commands[key].Response, "1", "0"})
+	err := bot.InsertIntoDB("commands", bot.CommandDBColumns, []string{key, bot.Commands[key].Response, "all", "0"})
 	if err != nil {
 		return err
 	}

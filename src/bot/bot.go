@@ -3,6 +3,7 @@
 package bot
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
@@ -17,13 +18,15 @@ import (
 
 // Bot struct contains the necessary data to run an instance of a bot
 type Bot struct {
+	Name             string
 	ChannelName      string
 	ServerName       string
-	oauth            string `json:"-"`
-	Name             string
-	Conn             net.Conn `json:"-"`
-	DB               *sql.DB  `json:"-"`
-	DBPath           string   `json:"-"`
+	oauth            string       `json:"-"`
+	Config           *viper.Viper `json:"-"`
+	Authenticated    bool         // used to tell the front-end GUI whether the bot has been authenticated yet
+	Conn             net.Conn     `json:"-"`
+	DB               *sql.DB      `json:"-"`
+	DBPath           string       `json:"-"`
 	PurgeForLinks    bool
 	PurgeForLongMsg  bool
 	LongMsgAmount    int
@@ -39,20 +42,20 @@ type Bot struct {
 }
 
 // writeConfig is run whenever the config.toml file doesn't exist, usually after a fresh download of the bot.
-func writeConfig(path string) {
+func writeConfig(path string, configObject *viper.Viper) {
 	path = path + "/config.toml"
 	// prepare default values, will be used when viper writes the new config file
-	viper.SetDefault("ChannelName", "<enter channel name to moderate here>")
-	viper.SetDefault("ServerName", "irc.twitch.tv:6667")
-	viper.SetDefault("BotName", "<enter bot username here>")
-	viper.SetDefault("BotOAuth", "<bot oauth>")
-	viper.SetDefault("PurgeForLinks", true)
-	viper.SetDefault("PurgeForLongMsg", true)
-	viper.SetDefault("LongMsgAmount", 400)
-	viper.SetDefault("EnableServer", true)
-	viper.SetDefault("PostLinkPerm", uint(1)) // Minimum permission needed for non-purging links, in this case subscriber
+	configObject.SetDefault("ChannelName", "<enter channel name to moderate here>")
+	configObject.SetDefault("ServerName", "irc.twitch.tv:6667")
+	configObject.SetDefault("BotName", "<enter bot username here>")
+	configObject.SetDefault("BotOAuth", "<bot oauth>")
+	configObject.SetDefault("PurgeForLinks", true)
+	configObject.SetDefault("PurgeForLongMsg", true)
+	configObject.SetDefault("LongMsgAmount", 400)
+	configObject.SetDefault("EnableServer", true)
+	configObject.SetDefault("PostLinkPerm", uint(1)) // Minimum permission needed for non-purging links, in this case subscriber
 
-	viper.WriteConfigAs(path)
+	configObject.WriteConfigAs(path)
 	fmt.Println(fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.", path))
 }
 
@@ -65,11 +68,12 @@ func CreateBot() *Bot {
 	}
 
 	// prepare toml config file
-	viper.SetConfigName("config")
-	viper.AddConfigPath(pleasantDir)
-	if err := viper.ReadInConfig(); err != nil {
+	viperConfig := viper.New()
+	viperConfig.SetConfigName("config")
+	viperConfig.AddConfigPath(pleasantDir)
+	if err := viperConfig.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok { // if config not found, write a default one
-			writeConfig(pleasantDir)
+			writeConfig(pleasantDir, viperConfig)
 			os.Exit(1) // write a better way to exit this gracefully
 		} else {
 			panic(fmt.Errorf("error reading in config file: %s", err))
@@ -78,6 +82,8 @@ func CreateBot() *Bot {
 
 	var bot Bot
 	var db *sql.DB
+
+	bot.Config = viperConfig
 
 	// prepare Sqlite 3 database
 	dbFile := pleasantDir + "/pleasantbot.db"
@@ -114,16 +120,23 @@ func CreateBot() *Bot {
 	}
 
 	// assign bot values provided by the config file
-	bot.ChannelName = viper.GetString("ChannelName")
-	bot.ServerName = viper.GetString("ServerName")
-	bot.oauth = viper.GetString("BotOAuth")
-	bot.Name = viper.GetString("BotName")
-	bot.PurgeForLinks = viper.GetBool("PurgeForLinks")
-	bot.PurgeForLongMsg = viper.GetBool("PurgeForLongMsg")
-	bot.LongMsgAmount = viper.GetInt("LongMsgAmount")
-	bot.EnableServer = viper.GetBool("EnableServer")
+	bot.ChannelName = bot.Config.GetString("ChannelName")
+	bot.ServerName = bot.Config.GetString("ServerName")
+	bot.oauth = bot.Config.GetString("BotOAuth")
+	bot.Name = bot.Config.GetString("BotName")
+	bot.PurgeForLinks = bot.Config.GetBool("PurgeForLinks")
+	bot.PurgeForLongMsg = bot.Config.GetBool("PurgeForLongMsg")
+	bot.LongMsgAmount = bot.Config.GetInt("LongMsgAmount")
+	bot.EnableServer = bot.Config.GetBool("EnableServer")
 	bot.CommandDBColumns = []string{"commandname", "commandresponse", "perm", "count"}
 	bot.QuoteDBColumns = []string{"quote", "timestamp", "submitter"}
+
+	// determine using the oauth string whether the user has logged in yet
+	if bot.oauth != "oauth:" && bot.oauth != "" {
+		bot.Authenticated = true
+	} else {
+		bot.Authenticated = false
+	}
 
 	return &bot
 }
@@ -131,15 +144,20 @@ func CreateBot() *Bot {
 // Connect establishes a connection to the Twitch IRC server
 func (bot *Bot) Connect() error {
 	var err error
+	conf := &tls.Config{
+		//InsecureSkipVerify: true,
+	}
 	if bot.Conn != nil {
 		return fmt.Errorf("ERROR: the bot has already established an IRC connection")
 	}
-	bot.Conn, err = net.Dial("tcp", bot.ServerName)
+	bot.Conn, err = tls.Dial("tcp", bot.ServerName, conf)
+	///bot.Conn, err = net.Dial("tcp", bot.ServerName)
 	return err
 }
 
 // ChannelConnect writes the necessary scopes to Twitch
 func (bot *Bot) ChannelConnect() {
+
 	// Pass info to HTTP request
 	fmt.Fprintf(bot.Conn, "PASS %s\r\n", bot.oauth)
 	fmt.Fprintf(bot.Conn, "NICK %s\r\n", bot.Name)
@@ -212,4 +230,13 @@ func (bot *Bot) banUser(username string, reason string) {
 // GetOAuth returns the bot's oauth token
 func (bot *Bot) GetOAuth() string {
 	return bot.oauth
+}
+
+// SetOAuth creates or replaces the bot Oauth token.
+func (bot *Bot) SetOAuth(token string) {
+	newToken := fmt.Sprintf("oauth:%s", token)
+	bot.Config.Set("botoauth", newToken)
+	bot.oauth = newToken // set runtime oauth
+	bot.Authenticated = true
+	bot.Config.WriteConfig() // update config with new oauth token
 }

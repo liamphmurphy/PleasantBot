@@ -43,6 +43,10 @@ func (bot *Bot) getBotData(c *gin.Context) {
 	c.JSON(http.StatusOK, bot)
 }
 
+func (bot *Bot) getQuotes(c *gin.Context) {
+	c.JSON(http.StatusOK, bot.Quotes)
+}
+
 // return JSON representation of ban_history events
 func (bot *Bot) getBanHistory(c *gin.Context) {
 	rows, _ := bot.DB.Query("select user, reason, timestamp from ban_history ORDER BY timestamp DESC;")
@@ -61,6 +65,10 @@ func (bot *Bot) getBanHistory(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, history) // serve the ban_history slice
+}
+
+func (bot *Bot) checkAuthHandler(c *gin.Context) {
+	c.JSON(200, bot.Authenticated)
 }
 
 // return JSON representation of quick stats
@@ -112,8 +120,15 @@ func (bot *Bot) delComHandler(c *gin.Context) {
 	}
 }
 
-func (bot *Bot) getQuotes(c *gin.Context) {
-	c.JSON(http.StatusOK, bot.Quotes)
+func (bot *Bot) addOAuthHandler(c *gin.Context) {
+	var token string
+	err := c.BindJSON(&token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"Status:": "Error receiving new oauth token."})
+	}
+
+	bot.SetOAuth(token)
+	c.JSON(http.StatusOK, gin.H{"Status": "New oauth set."})
 }
 
 // StartAPI starts the gin router for the bot's API
@@ -128,10 +143,12 @@ func (bot *Bot) StartAPI() {
 	router.GET("/getbanhistory", bot.getBanHistory)
 	router.GET("/getstats", bot.getStats)
 	router.GET("/getquotes", bot.getQuotes)
+	router.GET("/checkauth", bot.checkAuthHandler)
 
 	// API POST endpoints
 	router.POST("/addcom", bot.addComHandler)
 	router.POST("/delcom", bot.delComHandler)
+	router.POST("/addoauth", bot.addOAuthHandler)
 
 	router.Run()
 }

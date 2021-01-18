@@ -8,6 +8,8 @@ import paginationFactory from 'react-bootstrap-table2-paginator';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
+import Login from './Login';
+
 
 
 const axios = require('axios').default;
@@ -45,7 +47,6 @@ class Dashboard extends React.Component {
     const columns = [{dataField: 'User', text: 'Username'}, 
                     {dataField: 'Reason', text: 'Reason'},
                     {dataField: 'Timestamp', text: 'Timestamp'}];
-
     if (loaded) { // indicates that the bot may not be running
       return (
         <Container fluid>
@@ -75,7 +76,7 @@ class Dashboard extends React.Component {
         </Container>
       );
     } else {
-      return <h1>ERROR. Please ensure the bot is running.</h1>;
+      return <h1>ERROR! Is the bot running?</h1>
     }
   }
 }
