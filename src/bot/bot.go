@@ -122,7 +122,7 @@ func CreateBot() *Bot {
 	// assign bot values provided by the config file
 	bot.ChannelName = bot.Config.GetString("ChannelName")
 	bot.ServerName = bot.Config.GetString("ServerName")
-	bot.oauth = bot.Config.GetString("BotOAuth")
+	bot.oauth = "oauth:" + bot.Config.GetString("BotOAuth")
 	bot.Name = bot.Config.GetString("BotName")
 	bot.PurgeForLinks = bot.Config.GetBool("PurgeForLinks")
 	bot.PurgeForLongMsg = bot.Config.GetBool("PurgeForLongMsg")
@@ -183,11 +183,7 @@ func (bot *Bot) SendMessage(msg string) {
 
 // Itob converts an integer (0 or 1) to a corresponding boolean. Mainly used for command moderator perms
 func Itob(i int) bool {
-	if i == 1 {
-		return true
-	}
-
-	return false
+	return i == 1
 }
 
 // FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam

@@ -13,9 +13,9 @@ import (
 
 // CommandValue makes up a single command, used as the value in the bot's underyling commands map
 type CommandValue struct {
-	Response string
-	Perm     string
-	Count    int
+	Response string `json:"response"`
+	Perm     string `json:"perm"`
+	Count    int    `json:"count"`
 }
 
 // AddCommandString takes in a string of the form !addcom !comtitle <command response>

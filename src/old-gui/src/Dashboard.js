@@ -8,9 +8,6 @@ import paginationFactory from 'react-bootstrap-table2-paginator';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
-import Login from './Login';
-
-
 
 const axios = require('axios').default;
 

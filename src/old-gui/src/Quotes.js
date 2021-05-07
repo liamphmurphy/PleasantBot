@@ -55,7 +55,6 @@ class Quotes extends React.Component {
   handleOnSelectAll(isSelect, rows) {
     if (isSelect) {
       for (const [index, com] of rows.entries()) {
-        console.log(com)
         this.selectedRows.push(com.name)
       }
     }

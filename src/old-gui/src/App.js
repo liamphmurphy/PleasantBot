@@ -24,9 +24,17 @@ import {
 } from "react-router-dom";
 import Container from 'react-bootstrap/Container';
 
+class App extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      authed: true   
+    }
+
+  }
 
 // renders the nav bar
-function renderNavBar() {
+renderNavBar() {
   return (
     <Navbar collapseOnSelect bg="dark" variant="dark" fixed="top" expand="lg"> 
           <Navbar.Brand href="/">PleasantBot</Navbar.Brand>
@@ -48,20 +56,20 @@ function renderNavBar() {
   )
 }
 
-function App() {
-  if (document.location.hash != "") { 
+render() {
+  if (document.location.hash !== "") { 
     sendToken(document.location.hash.substr(1)); // send new oauth token to backend
   }
 
   return (
     <div>
       <Router>
-        {renderNavBar()}
+        {this.renderNavBar()}
         <br /><br /><br />
         <Container>
           <Switch>
             <Route exact path="/login">
-              <Login />
+              {authenticated() ? <Dashboard /> : <Login />}
             </Route>
             <Route exact path="/">
               {authenticated() ? <Dashboard /> : <Redirect to="/login" />}
@@ -84,6 +92,7 @@ function App() {
 
     </div>
   );
+}
 }
 
 export default App;
