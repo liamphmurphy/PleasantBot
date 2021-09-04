@@ -25,8 +25,9 @@ func main() {
 	for {
 		if !pleasant.Authenticated {
 			time.Sleep(1 * time.Second)
+		} else {
+			break
 		}
-		break
 	}
 	var err error
 	pleasant.DB, err = sql.Open("sqlite3", pleasant.DBPath)
@@ -52,7 +53,7 @@ func main() {
 
 	defer pleasant.Conn.Close()
 
-	reader := bufio.NewReader(pleasant.Conn) // prepare net line readers
+	reader := bufio.NewReader(pleasant.Conn) // prepare network line readers
 	proto := textproto.NewReader(reader)
 
 	msgRegex, _ := regexp.Compile("[;]+") // regexp object used to split messages
