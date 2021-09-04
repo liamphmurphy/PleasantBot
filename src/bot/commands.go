@@ -26,9 +26,9 @@ func (bot *Bot) AddCommandString(msg string) error {
 	}
 
 	key := msgSplit[0]
-	bot.Commands[key] = &CommandValue{Response: (strings.Join(msgSplit[1:], " ")), Perm: "all", Count: 0}
+	bot.Commands[key] = &CommandValue{Response: strings.Join(msgSplit[1:], " "), Perm: "all", Count: 0}
 
-	err := bot.InsertIntoDB("commands", bot.CommandDBColumns, []string{key, bot.Commands[key].Response, "all", "0"})
+	err := bot.DB.Insert("commands", bot.CommandDBColumns, []string{key, bot.Commands[key].Response, "all", "0"})
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (bot *Bot) RemoveCommand(key string) bool {
 	var found bool
 	if _, found := bot.Commands[key]; found {
 		delete(bot.Commands, key)                               // deletes from the commands map
-		err := bot.DeleteFromDB("commands", "commandname", key) // deletes permanently from the DB
+		err := bot.DB.Delete("commands", "commandname", key) // deletes permanently from the DB
 		if err == nil {
 			bot.SendMessage(fmt.Sprintf("%s has been deleted.", key))
 		}
@@ -62,9 +62,8 @@ func (bot *Bot) RemoveCommand(key string) bool {
 
 // IncrementCommandCount takes in a command name (key) and increments the associated count value in the DB
 func (bot *Bot) IncrementCommandCount(command string) error {
-	var err error
 	stmt := fmt.Sprintf("UPDATE commands SET count = count + 1 WHERE commandname = '%s'", command) // prepare statement tring
-	_, err = bot.DB.Exec(stmt)
+	err := bot.DB.ArbitraryExec(stmt)
 	if err != nil {
 		return fmt.Errorf("Error updating the count for %s. Error: %s", command, err)
 	}

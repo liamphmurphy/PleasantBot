@@ -4,15 +4,14 @@ package bot
 
 import (
 	"crypto/tls"
-	"database/sql"
 	"fmt"
+	"github.com/murnux/pleasantbot/db"
 	"log"
 	"net"
 	"os"
 	"regexp"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3" // docs have a blank import so I'm using that
 	"github.com/spf13/viper"
 )
 
@@ -25,7 +24,7 @@ type Bot struct {
 	Config           *viper.Viper `json:"-"`
 	Authenticated    bool         // used to tell the front-end GUI whether the bot has been authenticated yet
 	Conn             net.Conn     `json:"-"`
-	DB               *sql.DB      `json:"-"`
+	DB               db.Database      `json:"-"`
 	DBPath           string       `json:"-"`
 	PurgeForLinks    bool
 	PurgeForLongMsg  bool
@@ -81,25 +80,15 @@ func CreateBot() *Bot {
 	}
 
 	var bot Bot
-	var db *sql.DB
+	var db db.Sqlite
+	err := db.Init(pleasantDir)
+	if err != nil {
+		return nil
+	}
 
 	bot.Config = viperConfig
 
-	// prepare Sqlite 3 database
-	dbFile := pleasantDir + "/pleasantbot.db"
-	if _, err := os.Stat(dbFile); os.IsNotExist(err) { // make database file if it doesn't exist
-		os.Create(dbFile)
-	}
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		log.Fatalf("error trying to open the sqlite3 db file: %s\n", err)
-	}
-
-	defer db.Close()
-
-	prepareDatabase(db) // creates and prepares the bot's database
-	bot.DB = db
-	bot.DBPath = dbFile
+	bot.DB = &db
 
 	// load data
 	bot.Commands = make(map[string]*CommandValue)
@@ -219,7 +208,7 @@ func (bot *Bot) purgeUser(username string) {
 }
 
 func (bot *Bot) banUser(username string, reason string) {
-	bot.InsertIntoDB("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
+	bot.DB.Insert("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
 	bot.SendMessage(fmt.Sprintf("/ban %s", username))
 }
 

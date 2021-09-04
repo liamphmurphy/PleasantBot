@@ -20,7 +20,7 @@ type QuoteValues struct {
 func (bot *Bot) AddQuote(quote string, submitter string) error {
 	// prepare the quote with an added date and time
 	date := time.Now().Format("2006-01-02")
-	err := bot.InsertIntoDB("quotes", bot.QuoteDBColumns, []string{quote, date, submitter})
+	err := bot.DB.Insert("quotes", bot.QuoteDBColumns, []string{quote, date, submitter})
 	bot.LoadQuotes()
 	return err
 }
