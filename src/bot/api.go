@@ -72,11 +72,11 @@ func (bot *Bot) checkAuthHandler(c *gin.Context) {
 }
 
 // return JSON representation of quick stats
-func (bot *Bot) getStats(c *gin.Context) {
+/*func (bot *Bot) getStats(c *gin.Context) {
 	topCom, count := bot.GetTopFromTable("commands", "commandname", "count")
 	topChat, chatCount := bot.GetTopFromTable("chatters", "username", "count")
 	c.JSON(http.StatusOK, stats{Commands: len(bot.Commands), Quotes: len(bot.Quotes), Bans: 0, TopCommand: topCom, TopComCount: count, TopChatter: topChat, TopChatCount: chatCount})
-}
+}*/
 
 func (bot *Bot) addComHandler(c *gin.Context) {
 	var comValues commandPost
@@ -87,7 +87,7 @@ func (bot *Bot) addComHandler(c *gin.Context) {
 	}
 
 	// First add new command to database
-	err = bot.InsertIntoDB("commands", bot.CommandDBColumns, []string{comValues.Name, comValues.Resp, comValues.Perm, "0"})
+	err = bot.DB.Insert("commands", bot.CommandDBColumns, []string{comValues.Name, comValues.Resp, comValues.Perm, "0"})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"Status": "Error adding command to DB"})
 		log.Fatal(err)
@@ -141,7 +141,7 @@ func (bot *Bot) StartAPI() {
 	router.GET("/getcoms", bot.getComHandler)
 	router.GET("/getbot", bot.getBotData)
 	router.GET("/getbanhistory", bot.getBanHistory)
-	router.GET("/getstats", bot.getStats)
+	//router.GET("/getstats", bot.getStats)
 	router.GET("/getquotes", bot.getQuotes)
 	router.GET("/checkauth", bot.checkAuthHandler)
 

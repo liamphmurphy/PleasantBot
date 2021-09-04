@@ -5,7 +5,7 @@ package bot
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/murnux/pleasantbot/db"
+	"github.com/murnux/pleasantbot/storage"
 	"log"
 	"net"
 	"os"
@@ -24,7 +24,7 @@ type Bot struct {
 	Config           *viper.Viper `json:"-"`
 	Authenticated    bool         // used to tell the front-end GUI whether the bot has been authenticated yet
 	Conn             net.Conn     `json:"-"`
-	DB               db.Database      `json:"-"`
+	DB               storage.Database      `json:"-"`
 	DBPath           string       `json:"-"`
 	PurgeForLinks    bool
 	PurgeForLongMsg  bool
@@ -80,16 +80,14 @@ func CreateBot() *Bot {
 	}
 
 	var bot Bot
-	var db db.Sqlite
-	err := db.Init(pleasantDir)
-	if err != nil {
-		return nil
-	}
-
+	bot.DBPath = pleasantDir + "/pleasantbot.db"
 	bot.Config = viperConfig
 
-	bot.DB = &db
+	return &bot
+}
 
+func (bot *Bot) LoadBot() {
+	var err error
 	// load data
 	bot.Commands = make(map[string]*CommandValue)
 	err = bot.LoadCommands()
@@ -126,8 +124,6 @@ func CreateBot() *Bot {
 	} else {
 		bot.Authenticated = false
 	}
-
-	return &bot
 }
 
 // Connect establishes a connection to the Twitch IRC server

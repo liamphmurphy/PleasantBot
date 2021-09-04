@@ -1,4 +1,4 @@
-package db
+package storage
 
 import (
 	"database/sql"
@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Sqlite struct {
@@ -28,13 +30,12 @@ func prepareDatabase(db *sql.DB) {
 	}
 }
 
-func (sq *Sqlite) Init(dir string) error {
+func (sq *Sqlite) Init(path string) error {
 	// prepare Sqlite 3 database
-	dbFile := dir + "/pleasantbot.db"
-	if _, err := os.Stat(dbFile); os.IsNotExist(err) { // make database file if it doesn't exist
-		os.Create(dbFile)
+	if _, err := os.Stat(path); os.IsNotExist(err) { // make database file if it doesn't exist
+		os.Create(path)
 	}
-	db, err := sql.Open("sqlite3", dbFile)
+	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return err
 	}
@@ -42,7 +43,6 @@ func (sq *Sqlite) Init(dir string) error {
 	sq.db  = db
 	prepareDatabase(db) // creates and prepares the bot's database
 
-	defer db.Close()
 	return nil
 }
 
@@ -99,4 +99,8 @@ func (sq *Sqlite) ArbitraryExec(statement string) error {
 	}
 
 	return nil
+}
+
+func (sq *Sqlite) Close() error {
+	return sq.db.Close()
 }

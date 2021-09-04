@@ -8,7 +8,7 @@ require (
 	github.com/go-playground/validator/v10 v10.3.0 // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
-	github.com/mattn/go-sqlite3 v1.14.6
+	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/spf13/viper v1.7.1
 	golang.org/x/sys v0.0.0-20200918174421-af09f7315aff // indirect
 	google.golang.org/protobuf v1.25.0 // indirect

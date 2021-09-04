@@ -4,8 +4,8 @@ package main
 
 import (
 	"bufio"
-	"database/sql"
 	"fmt"
+	"github.com/murnux/pleasantbot/storage"
 	"log"
 	"net/textproto"
 	"os"
@@ -16,7 +16,15 @@ import (
 )
 
 func main() {
+	var db storage.Sqlite
 	pleasant := bot.CreateBot()
+	err := db.Init(pleasant.DBPath)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	defer db.Close()
+	pleasant.DB = &db
+	pleasant.LoadBot()
 
 	if pleasant.EnableServer {
 		go pleasant.StartAPI()
@@ -29,12 +37,6 @@ func main() {
 			break
 		}
 	}
-	var err error
-	pleasant.DB, err = sql.Open("sqlite3", pleasant.DBPath)
-	if err != nil {
-		log.Fatalf("failed to open database in main function: %s", err)
-	}
-	defer pleasant.DB.Close()
 	connErr := pleasant.Connect()
 	if connErr != nil {
 		fmt.Printf("error connecting to irc.twitch.tv: %s\n", connErr)
@@ -98,12 +100,6 @@ func main() {
 				pleasant.SendMessage(com.Response)
 				go pleasant.IncrementCommandCount(message.Content) // increment command count
 			}
-		}
-
-		// at this point, not a command, so increment the number of times the user has chatted
-		err = pleasant.UpdateChatterCount(message.Name)
-		if err != nil {
-			fmt.Println(err)
 		}
 	}
 }
