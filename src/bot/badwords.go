@@ -4,7 +4,6 @@
 package bot
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -14,15 +13,6 @@ type BadWord struct {
 	Severity int // 0 for purge, 1 for perma ban
 }
 
-// purges a user by sending a timeout of 1 second
-func (bot *Bot) purgeUser(username string) {
-	bot.SendMessage(fmt.Sprintf("/timeout %s 1", username))
-}
-
-func (bot *Bot) banUser(username string) {
-	bot.SendMessage(fmt.Sprintf("/ban %s", username))
-}
-
 // ParseForBadWord reads in every chat message and sees if a bad word was found in the message.
 func (bot *Bot) ParseForBadWord(user User) {
 	for i := range bot.BadWords { // search through all bad words
@@ -30,7 +20,7 @@ func (bot *Bot) ParseForBadWord(user User) {
 			if bot.BadWords[i].Severity == 0 { // purge condition
 				bot.purgeUser(user.Name)
 			} else { // ban condition
-				bot.banUser(user.Name)
+				bot.banUser(user.Name, "inputting a banned word")
 			}
 		}
 	}

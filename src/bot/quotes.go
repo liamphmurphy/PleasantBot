@@ -9,13 +9,28 @@ import (
 	"time"
 )
 
+// QuoteValues represents the values associated with a quote. The ID in the DB will be the map key
+type QuoteValues struct {
+	Quote     string
+	Timestamp string
+	Submitter string
+}
+
 // AddQuote adds a quote to the bot's internal slice and the database
-func (bot *Bot) AddQuote(quote string) error {
+func (bot *Bot) AddQuote(quote string, submitter string) error {
 	// prepare the quote with an added date and time
-	quoteWithDate := fmt.Sprintf("%s -- %s", quote, time.Now().Format("2006-01-02"))
-	bot.Quotes = append(bot.Quotes, quoteWithDate)
-	err := bot.InsertIntoDB("quotes", []string{"quote"}, []string{quoteWithDate})
+	date := time.Now().Format("2006-01-02")
+	err := bot.InsertIntoDB("quotes", bot.QuoteDBColumns, []string{quote, date, submitter})
+	bot.LoadQuotes()
 	return err
+}
+
+// given the id, generates a string containing the quote, timestamp and submitter
+func (bot *Bot) generateQuoteString(id int) string {
+	fmt.Println("id", id)
+	values := bot.Quotes[id]
+	fmt.Println("topkek", values)
+	return fmt.Sprintf("%s -- %s [submitted by %s]", values.Quote, values.Timestamp, values.Submitter)
 }
 
 // RandomQuote returns a random string, it does not print. It's up to the caller on what to do with it.
@@ -24,25 +39,27 @@ func (bot *Bot) RandomQuote() (string, error) {
 		return "", errors.New("no quotes were found")
 	}
 	randomIndex := rand.Intn(len(bot.Quotes))
-	return bot.Quotes[randomIndex], nil
+
+	return bot.generateQuoteString(randomIndex + 1), nil // return quote string
 }
 
 // LoadQuotes loads all quotes from the DB.
 // TODO: generalize this for all loading functions
 func (bot *Bot) LoadQuotes() error {
-	rows, err := bot.DB.Query("select quote from quotes")
+	rows, err := bot.DB.Query("select id, quote, timestamp, submitter from quotes")
 	if err != nil {
 		return err
 	}
 
 	defer rows.Close()
 	for rows.Next() { // scan through results from query and assign to the Commands slice
-		var quote string
-		err = rows.Scan(&quote)
+		var id int
+		var quote, timestamp, submitter string
+		err = rows.Scan(&id, &quote, &timestamp, &submitter)
 		if err != nil {
 			return err
 		}
-		bot.Quotes = append(bot.Quotes, quote)
+		bot.Quotes[id] = &QuoteValues{Quote: quote, Timestamp: timestamp, Submitter: submitter}
 	}
 	return nil
 }
@@ -54,5 +71,5 @@ func (bot *Bot) GetQuote(index int) (string, error) {
 	} else if index > len(bot.Quotes) {
 		return "", fmt.Errorf("the requested ID %d is greater than the total number of quotes, which is: %d", index, len(bot.Quotes))
 	}
-	return bot.Quotes[index-1], nil
+	return bot.generateQuoteString(index), nil // return quote string
 }

@@ -11,11 +11,11 @@ import (
 	"strings"
 )
 
-// Command makes up a single command
-type Command struct {
-	Name           string
-	Response       string
-	ModeratorPerms bool
+// CommandValue makes up a single command, used as the value in the bot's underyling commands map
+type CommandValue struct {
+	Response string
+	Perm     string
+	Count    int
 }
 
 // AddCommandString takes in a string of the form !addcom !comtitle <command response>
@@ -25,12 +25,10 @@ func (bot *Bot) AddCommandString(msg string) error {
 		return errors.New("please make sure your addcom call is like so: !addcom !commandname <full text response for the command>")
 	}
 
-	var newCmd Command // create new command
-	newCmd.Name = msgSplit[0]
-	newCmd.Response = strings.Join(msgSplit[1:], " ")
-	newCmd.ModeratorPerms = true
-	bot.Commands = append(bot.Commands, newCmd)
-	err := bot.InsertIntoDB("commands", []string{"commandname", "commandresponse", "modperms"}, []string{newCmd.Name, newCmd.Response, "0"})
+	key := msgSplit[0]
+	bot.Commands[key] = &CommandValue{Response: (strings.Join(msgSplit[1:], " ")), Perm: "all", Count: 0}
+
+	err := bot.InsertIntoDB("commands", bot.CommandDBColumns, []string{key, bot.Commands[key].Response, "all", "0"})
 	if err != nil {
 		return err
 	}
@@ -38,46 +36,45 @@ func (bot *Bot) AddCommandString(msg string) error {
 }
 
 // FindCommand takes in a key (command name) and returns matching command, if found
-func (bot *Bot) FindCommand(key string) (Command, error) {
-	var com Command
-
-	// linear search for command. TODO: make this better
-	for i := range bot.Commands {
-		if bot.Commands[i].Name == key {
-			return bot.Commands[i], nil
-		}
+func (bot *Bot) FindCommand(key string) (CommandValue, error) {
+	var com *CommandValue
+	com, found := bot.Commands[key]
+	var err error
+	if !found {
+		err = errors.New("could not find command")
+		return CommandValue{Response: "nil", Perm: "nil"}, err
 	}
-	return com, errors.New("could not find command")
+	return *com, err
 }
 
-// RemoveCommand takes in a command name as a string, presumably from the chat, and removes it from the slice
-func (bot *Bot) RemoveCommand(cmd string) bool {
-	cmdFound := false
-	index := 0
-
-	var name string // used for deleting from the database later
-	for i := range bot.Commands {
-		if bot.Commands[i].Name == cmd {
-			name = bot.Commands[i].Name
-			index = i
-			cmdFound = true
+// RemoveCommand takes in a command name as a string, presumably from the chat, and removes it
+func (bot *Bot) RemoveCommand(key string) bool {
+	var found bool
+	if _, found := bot.Commands[key]; found {
+		delete(bot.Commands, key)                               // deletes from the commands map
+		err := bot.DeleteFromDB("commands", "commandname", key) // deletes permanently from the DB
+		if err == nil {
+			bot.SendMessage(fmt.Sprintf("%s has been deleted.", key))
 		}
 	}
+	return found
+}
 
-	// many thanks to this article for the best way to remove an item from a slice https://www.delftstack.com/howto/go/how-to-delete-an-element-from-a-slice-in-golang/
-	if cmdFound {
-		bot.Commands[index] = bot.Commands[len(bot.Commands)-1]
-		bot.Commands = bot.Commands[:len(bot.Commands)-1]
-
-		fmt.Println(bot.DeleteFromDB("commands", "commandname", name))
+// IncrementCommandCount takes in a command name (key) and increments the associated count value in the DB
+func (bot *Bot) IncrementCommandCount(command string) error {
+	var err error
+	stmt := fmt.Sprintf("UPDATE commands SET count = count + 1 WHERE commandname = '%s'", command) // prepare statement tring
+	_, err = bot.DB.Exec(stmt)
+	if err != nil {
+		return fmt.Errorf("Error updating the count for %s. Error: %s", command, err)
 	}
-	return cmdFound
+	return nil
 }
 
 // DefaultCommands takes in a potential command request and sees if it is one of the default commands
-func (bot *Bot) DefaultCommands(msg string) bool {
+func (bot *Bot) DefaultCommands(user User) bool {
 	cmdFound := true
-	msgSplit := strings.Split(msg, " ")
+	msgSplit := strings.Split(user.Content, " ")
 
 	switch msgSplit[0] { // start cycling through potential default commands
 	case "!help":
@@ -95,7 +92,7 @@ func (bot *Bot) DefaultCommands(msg string) bool {
 		bot.RemoveCommand(msgSplit[1])
 
 	case "!quote":
-		if msg == "!quote" { // if entire message is just !quote, user is asking for a random quote
+		if user.Content == "!quote" { // if entire message is just !quote, user is asking for a random quote
 			quote, err := bot.RandomQuote()
 			if err != nil {
 				bot.SendMessage(fmt.Sprintf("Error finding a quote: %s", err))
@@ -115,7 +112,7 @@ func (bot *Bot) DefaultCommands(msg string) bool {
 			bot.SendMessage(quote)
 		}
 	case "!addquote":
-		bot.AddQuote(strings.Join(msgSplit[1:], " "))
+		bot.AddQuote(strings.Join(msgSplit[1:], " "), user.Name)
 
 	case "!subon": // turn on subscribers only mode
 		bot.SendMessage("/subscribers")
@@ -132,7 +129,7 @@ func (bot *Bot) DefaultCommands(msg string) bool {
 
 // LoadCommands queries the sqlite3 database for existing commands
 func (bot *Bot) LoadCommands() error {
-	rows, err := bot.DB.Query("select commandname, commandresponse, modperms from commands")
+	rows, err := bot.DB.Query("select commandname, commandresponse, perm from commands")
 	if err != nil {
 		return err
 	}
@@ -140,13 +137,35 @@ func (bot *Bot) LoadCommands() error {
 	defer rows.Close()
 	for rows.Next() { // scan through results from query and assign to the Commands slice
 		var name, response string
-		var perm int
+		var perm string
 		err = rows.Scan(&name, &response, &perm)
 		if err != nil {
 			return err
 		}
-		com := Command{Name: name, Response: response, ModeratorPerms: Itob(perm)}
-		bot.Commands = append(bot.Commands, com)
+		bot.Commands[name] = &CommandValue{Response: response, Perm: perm}
 	}
 	return nil
+}
+
+// ConvertPermToInt takes in a string "all", "moderator" etc and converts it to the associated int.
+func (bot *Bot) ConvertPermToInt(perm string) (uint8, error) {
+	perm = strings.ToLower(perm)
+	var err error
+
+	switch perm { // determine permission, or error out if needed
+	case "all":
+		return 0, err
+
+	case "subscriber":
+		return 1, err
+
+	case "moderator":
+		return 2, err
+
+	case "broadcaster":
+		return 3, err
+
+	default:
+		return 255, fmt.Errorf("id not receive a valid permission")
+	}
 }
