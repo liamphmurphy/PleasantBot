@@ -19,16 +19,10 @@ type CommandValue struct {
 }
 
 // AddCommandString takes in a string of the form !addcom !comtitle <command response>
-func (bot *Bot) AddCommandString(msg string) error {
-	msgSplit := strings.Split(msg, " ")
-	if len(msgSplit) < 2 || msgSplit[0][0] != '!' { // should contain at least the command name + one word or more as the response
-		return errors.New("please make sure your addcom call is like so: !addcom !commandname <full text response for the command>")
-	}
+func (bot *Bot) AddCommand(item Item) error {
+	bot.Commands[item.Key] = &CommandValue{Response: item.Contents, Perm: "all", Count: 0}
 
-	key := msgSplit[0]
-	bot.Commands[key] = &CommandValue{Response: strings.Join(msgSplit[1:], " "), Perm: "all", Count: 0}
-
-	err := bot.DB.Insert("commands", bot.CommandDBColumns, []string{key, bot.Commands[key].Response, "all", "0"})
+	err := bot.DB.Insert("commands", bot.CommandDBColumns, []string{item.Key, bot.Commands[item.Key].Response, "all", "0"})
 	if err != nil {
 		return err
 	}
@@ -51,7 +45,7 @@ func (bot *Bot) FindCommand(key string) (CommandValue, error) {
 func (bot *Bot) RemoveCommand(key string) bool {
 	var found bool
 	if _, found := bot.Commands[key]; found {
-		delete(bot.Commands, key)                               // deletes from the commands map
+		delete(bot.Commands, key)                            // deletes from the commands map
 		err := bot.DB.Delete("commands", "commandname", key) // deletes permanently from the DB
 		if err == nil {
 			bot.SendMessage(fmt.Sprintf("%s has been deleted.", key))
@@ -73,24 +67,28 @@ func (bot *Bot) IncrementCommandCount(command string) error {
 // DefaultCommands takes in a potential command request and sees if it is one of the default commands
 func (bot *Bot) DefaultCommands(user User) bool {
 	cmdFound := true
-	msgSplit := strings.Split(user.Content, " ")
+	item, err := NewItem(user.Content)
+	if err != nil {
+		return false
+	}
 
-	switch msgSplit[0] { // start cycling through potential default commands
-	case "!help":
+	// TODO: potentially support custom default command invocation keys
+	switch item.Type { // start cycling through potential default commands
+	case "help":
 		bot.SendMessage("Some helpful help message. :)")
 
-	case "!addcom": // add a new custom command
-		err := bot.AddCommandString(strings.Join(msgSplit[1:], " "))
+	case "addcom": // add a new custom command
+		err := bot.AddCommand(item)
 		if err == nil {
 			bot.SendMessage("The new command was added successfully.")
 		} else {
 			bot.SendMessage(fmt.Sprintf("The bot returned the following error: %s", err))
 		}
 
-	case "!delcom":
-		bot.RemoveCommand(msgSplit[1])
+	case "delcom":
+		bot.RemoveCommand(item.Key)
 
-	case "!quote":
+	case "quote":
 		if user.Content == "!quote" { // if entire message is just !quote, user is asking for a random quote
 			quote, err := bot.RandomQuote()
 			if err != nil {
@@ -99,7 +97,7 @@ func (bot *Bot) DefaultCommands(user User) bool {
 			}
 			bot.SendMessage(quote)
 		} else { // otherwise, count on them at least attempting in getting a specific quote
-			id, err := strconv.Atoi(msgSplit[1])
+			id, err := strconv.Atoi(item.Key)
 			if err != nil {
 				bot.SendMessage("id for the quote must be a valid positive integer")
 			}
@@ -110,13 +108,13 @@ func (bot *Bot) DefaultCommands(user User) bool {
 			}
 			bot.SendMessage(quote)
 		}
-	case "!addquote":
-		bot.AddQuote(strings.Join(msgSplit[1:], " "), user.Name)
+	case "addquote":
+		bot.AddQuote(item.Contents, user.Name)
 
-	case "!subon": // turn on subscribers only mode
+	case "subon": // turn on subscribers only mode
 		bot.SendMessage("/subscribers")
 		bot.SendMessage("Subscriber only mode is now on.")
-	case "!suboff": // turn off subscribers only mode
+	case "suboff": // turn off subscribers only mode
 		bot.SendMessage("/subscribersoff")
 		bot.SendMessage("Subscriber only mode is now off.")
 	default:

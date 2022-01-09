@@ -5,12 +5,13 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/murnux/pleasantbot/storage"
 	"log"
 	"net/textproto"
 	"os"
 	"regexp"
 	"time"
+
+	"github.com/murnux/pleasantbot/storage"
 
 	"github.com/murnux/pleasantbot/bot"
 )
@@ -23,7 +24,7 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 	defer db.Close()
-	pleasant.DB = &db
+	pleasant.DB = db
 	pleasant.LoadBot()
 
 	if pleasant.EnableServer {
@@ -43,6 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Println(pleasant.GetOAuth())
 	// Pass info to HTTP request
 	fmt.Fprintf(pleasant.Conn, "PASS %s\r\n", pleasant.GetOAuth())
 	fmt.Fprintf(pleasant.Conn, "NICK %s\r\n", pleasant.Name)
@@ -65,6 +67,7 @@ func main() {
 	// keep reading messages until some end condition is reached
 	for {
 		line, err := proto.ReadLine()
+		fmt.Println(line)
 		if err != nil {
 			fmt.Printf("error receiving message: %s\n", err)
 			os.Exit(1)

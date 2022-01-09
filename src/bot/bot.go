@@ -5,14 +5,20 @@ package bot
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/murnux/pleasantbot/storage"
 	"log"
 	"net"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
+	"github.com/murnux/pleasantbot/storage"
+
 	"github.com/spf13/viper"
+)
+
+var (
+	urlRegex, _ = regexp.Compile(`[-a-zA-Z-1-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 )
 
 // Bot struct contains the necessary data to run an instance of a bot
@@ -20,12 +26,12 @@ type Bot struct {
 	Name             string
 	ChannelName      string
 	ServerName       string
-	oauth            string       `json:"-"`
-	Config           *viper.Viper `json:"-"`
-	Authenticated    bool         // used to tell the front-end GUI whether the bot has been authenticated yet
-	Conn             net.Conn     `json:"-"`
-	DB               storage.Database      `json:"-"`
-	DBPath           string       `json:"-"`
+	oauth            string         `json:"-"`
+	Config           *viper.Viper   `json:"-"`
+	Authenticated    bool           // used to tell the front-end GUI whether the bot has been authenticated yet
+	Conn             net.Conn       `json:"-"`
+	DB               storage.Sqlite `json:"-"`
+	DBPath           string         `json:"-"`
 	PurgeForLinks    bool
 	PurgeForLongMsg  bool
 	LongMsgAmount    int
@@ -45,7 +51,7 @@ func writeConfig(path string, configObject *viper.Viper) {
 	path = path + "/config.toml"
 	// prepare default values, will be used when viper writes the new config file
 	configObject.SetDefault("ChannelName", "<enter channel name to moderate here>")
-	configObject.SetDefault("ServerName", "irc.twitch.tv:6667")
+	configObject.SetDefault("ServerName", "irc.chat.twitch.tv:6697")
 	configObject.SetDefault("BotName", "<enter bot username here>")
 	configObject.SetDefault("BotOAuth", "<bot oauth>")
 	configObject.SetDefault("PurgeForLinks", true)
@@ -55,7 +61,7 @@ func writeConfig(path string, configObject *viper.Viper) {
 	configObject.SetDefault("PostLinkPerm", uint(1)) // Minimum permission needed for non-purging links, in this case subscriber
 
 	configObject.WriteConfigAs(path)
-	fmt.Println(fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.", path))
+	fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.\n", path)
 }
 
 // CreateBot creates an instance of a bot
@@ -70,6 +76,7 @@ func CreateBot() *Bot {
 	viperConfig := viper.New()
 	viperConfig.SetConfigName("config")
 	viperConfig.AddConfigPath(pleasantDir)
+	// TODO: remove the creation of a default config to the driver main.go
 	if err := viperConfig.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok { // if config not found, write a default one
 			writeConfig(pleasantDir, viperConfig)
@@ -109,7 +116,7 @@ func (bot *Bot) LoadBot() {
 	// assign bot values provided by the config file
 	bot.ChannelName = bot.Config.GetString("ChannelName")
 	bot.ServerName = bot.Config.GetString("ServerName")
-	bot.oauth = "oauth:" + bot.Config.GetString("BotOAuth")
+	bot.oauth = bot.Config.GetString("BotOAuth")
 	bot.Name = bot.Config.GetString("BotName")
 	bot.PurgeForLinks = bot.Config.GetBool("PurgeForLinks")
 	bot.PurgeForLongMsg = bot.Config.GetBool("PurgeForLongMsg")
@@ -140,22 +147,6 @@ func (bot *Bot) Connect() error {
 	return err
 }
 
-// ChannelConnect writes the necessary scopes to Twitch
-func (bot *Bot) ChannelConnect() {
-
-	// Pass info to HTTP request
-	fmt.Fprintf(bot.Conn, "PASS %s\r\n", bot.oauth)
-	fmt.Fprintf(bot.Conn, "NICK %s\r\n", bot.Name)
-	fmt.Fprintf(bot.Conn, "JOIN #%s\r\n", bot.ChannelName)
-
-	// Twitch specific information, like badges, mod status etc.
-	fmt.Fprintf(bot.Conn, "CAP REQ :twitch.tv/membership\r\n")
-	fmt.Fprintf(bot.Conn, "CAP REQ :twitch.tv/tags\r\n")
-	fmt.Fprintf(bot.Conn, "CAP REQ :twitch.tv/commands\r\n")
-
-	defer bot.Conn.Close()
-}
-
 // WriteToTwitch when given a string sends a properly formatted message to Twitch, easy replacement for using fmt.Fprintf
 func (bot *Bot) WriteToTwitch(msg string) {
 	fmt.Fprintf(bot.Conn, "%s\r\n", msg)
@@ -175,7 +166,6 @@ func Itob(i int) bool {
 func (bot *Bot) FilterForSpam(message User) {
 	if bot.PurgeForLinks { // if enabled, check if message contains a link
 		// regex obtained from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
-		urlRegex, _ := regexp.Compile(`[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 		if urlRegex.MatchString(message.Content) {
 			if _, permitted := bot.PermittedUsers[message.Name]; permitted || message.Perm >= bot.PostLinkPerm { // let user post if they are in the permit list or is a moderator / broadcaster
 				delete(bot.PermittedUsers, message.Name) // found, do nothing except delete from the map
@@ -210,6 +200,9 @@ func (bot *Bot) banUser(username string, reason string) {
 
 // GetOAuth returns the bot's oauth token
 func (bot *Bot) GetOAuth() string {
+	if !strings.Contains(bot.oauth, "oauth") {
+		return fmt.Sprintf("oauth:%s", bot.oauth)
+	}
 	return bot.oauth
 }
 

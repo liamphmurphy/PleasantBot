@@ -5,3 +5,7 @@ type TimedValues struct {
 	Message string
 	Minutes int
 }
+
+func (bot *Bot) AddTimer(msg string) error {
+	return nil
+}
