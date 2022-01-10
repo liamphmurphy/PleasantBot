@@ -67,6 +67,11 @@ func (bot *Bot) IncrementCommandCount(command string) error {
 // DefaultCommands takes in a potential command request and sees if it is one of the default commands
 func (bot *Bot) DefaultCommands(user User) bool {
 	cmdFound := true
+
+	var item Item
+	if user.Content == "!quote" {
+		item.Key = "quote"
+	}
 	item, err := NewItem(user.Content)
 	if err != nil {
 		return false
@@ -74,9 +79,6 @@ func (bot *Bot) DefaultCommands(user User) bool {
 
 	// TODO: potentially support custom default command invocation keys
 	switch item.Type { // start cycling through potential default commands
-	case "help":
-		bot.SendMessage("Some helpful help message. :)")
-
 	case "addcom": // add a new custom command
 		err := bot.AddCommand(item)
 		if err == nil {
@@ -89,7 +91,7 @@ func (bot *Bot) DefaultCommands(user User) bool {
 		bot.RemoveCommand(item.Key)
 
 	case "quote":
-		if user.Content == "!quote" { // if entire message is just !quote, user is asking for a random quote
+		if user.Content == "!quote" { // if entire message is just !quote, user is asking for the bot to return a random quote
 			quote, err := bot.RandomQuote()
 			if err != nil {
 				bot.SendMessage(fmt.Sprintf("Error finding a quote: %s", err))
@@ -110,7 +112,6 @@ func (bot *Bot) DefaultCommands(user User) bool {
 		}
 	case "addquote":
 		bot.AddQuote(item.Contents, user.Name)
-
 	case "subon": // turn on subscribers only mode
 		bot.SendMessage("/subscribers")
 		bot.SendMessage("Subscriber only mode is now on.")
@@ -163,6 +164,6 @@ func (bot *Bot) ConvertPermToInt(perm string) (uint8, error) {
 		return 3, err
 
 	default:
-		return 255, fmt.Errorf("id not receive a valid permission")
+		return 255, fmt.Errorf("did not receive a valid permission: %s", perm)
 	}
 }

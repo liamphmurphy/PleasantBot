@@ -12,9 +12,24 @@ func TestNewItem(t *testing.T) {
 		wantedItem   Item
 	}{
 		{
-			description:  "should pass a simple request",
+			description:  "should get a full type / key / content item",
 			inputRequest: "!newitem !someitem this is a test item",
-			wantedItem:   Item{Type: "newitem", Key: "someitem", Contents: "this is a test item"},
+			wantedItem:   Item{Type: "newitem", Key: "!someitem", Contents: "this is a test item"},
+		},
+		{
+			description:  "should get a type / key item",
+			inputRequest: "!delcom !acommand",
+			wantedItem:   Item{Type: "delcom", Key: "!acommand"},
+		},
+		{
+			description:  "should get a type / content item",
+			inputRequest: "!addquote this is a test quote",
+			wantedItem:   Item{Type: "addquote", Contents: "this is a test quote"},
+		},
+		{
+			description:  "should get a type item",
+			inputRequest: "!quote",
+			wantedItem:   Item{Type: "quote"},
 		},
 	}
 
