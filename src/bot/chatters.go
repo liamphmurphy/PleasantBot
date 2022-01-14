@@ -13,7 +13,7 @@ type User struct {
 	IsCommand bool
 }
 
-// used for debugging / testing. Shows the split of the message by index and content, useful to determine where to access which information.
+// debugDisplayMessage is used for debugging / testing. Shows the split of the message by index and content, useful to determine where to access which information.
 func debugDisplayMessage(message []string) {
 	for i := range message {
 		fmt.Printf("i: %d -- %s\n", i, message[i])
@@ -28,12 +28,7 @@ func parseMessageValue(line string) string {
 
 // similar to parseMessageValue. Some twitch values are 0 or 1, so return false or true accordingly.
 func parseMessageTrueOrFalse(line string) bool {
-	value := parseMessageValue(line)
-	if value == "0" {
-		return false
-	}
-
-	return true
+	return parseMessageValue(line) == "0"
 }
 
 // parses a user's message and associates the appropriate uint8 value for their permission level.
@@ -80,14 +75,14 @@ func (bot *Bot) UpdateChatterCount(user string) error {
 	stmt := fmt.Sprintf("INSERT OR IGNORE INTO chatters (username, count) VALUES ('%s', '0')", user) // prepare statement string
 	err = bot.DB.ArbitraryExec(stmt)
 	if err != nil {
-		return fmt.Errorf("Error inserting user %s into chatters. Error: %s", user, err)
+		return fmt.Errorf("error inserting user %s into chatters. error: %s", user, err)
 	}
 
 	// TODO: figure out way to generalize this and previous statement or reduce lines of code
 	stmt = fmt.Sprintf("UPDATE chatters SET count = count + 1 WHERE username='%s'", user)
 	err = bot.DB.ArbitraryExec(stmt)
 	if err != nil {
-		return fmt.Errorf("Error updating the count for %s. Error: %s", user, err)
+		return fmt.Errorf("error updating the count for %s. error: %s", user, err)
 	}
 	return nil
 }

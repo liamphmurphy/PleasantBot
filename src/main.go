@@ -17,15 +17,17 @@ import (
 )
 
 func main() {
-	var db storage.Sqlite
-	pleasant := bot.CreateBot()
-	err := db.Init(pleasant.DBPath)
+	configPath, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	defer db.Close()
-	pleasant.DB = db
-	pleasant.LoadBot()
+	configPath = fmt.Sprintf("%s/pleasantbot", configPath)
+
+	var db storage.Sqlite
+	pleasant, err := bot.CreateBot(configPath, "config", "pleasantbot.db", true, &db)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
 
 	if pleasant.EnableServer {
 		go pleasant.StartAPI()
@@ -38,13 +40,11 @@ func main() {
 			break
 		}
 	}
-	connErr := pleasant.Connect()
-	if connErr != nil {
-		fmt.Printf("error connecting to irc.twitch.tv: %s\n", connErr)
-		os.Exit(1)
+	err = pleasant.Connect()
+	if err != nil {
+		log.Fatalf(err.Error())
 	}
 
-	fmt.Println(pleasant.GetOAuth())
 	// Pass info to HTTP request
 	fmt.Fprintf(pleasant.Conn, "PASS %s\r\n", pleasant.GetOAuth())
 	fmt.Fprintf(pleasant.Conn, "NICK %s\r\n", pleasant.Name)
@@ -61,24 +61,30 @@ func main() {
 	proto := textproto.NewReader(reader)
 
 	msgRegex, _ := regexp.Compile("[;]+") // regexp object used to split messages
+	pingIndicator := "PING :tmi.twitch.tv"
 
 	fmt.Printf("Bot: %s\nChannel: %s\n", pleasant.Name, pleasant.ChannelName)
 
 	// keep reading messages until some end condition is reached
 	for {
 		line, err := proto.ReadLine()
-		fmt.Println(line)
 		if err != nil {
 			fmt.Printf("error receiving message: %s\n", err)
 			os.Exit(1)
 		}
+		fmt.Println(line)
+		ponged, err := pleasant.HandlePing(line, pingIndicator)
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
 
-		lineSplit := msgRegex.Split(line, -1) // TODO: apparently regex splitting isn't efficient, need to research this
-		if lineSplit[0] == "PING" {           // anticipate PING message
-			pleasant.WriteToTwitch("PONG :tmi.twitch.tv")
-			log.Println("INFO -- replied to PING with a PONG")
+		// skip further execution if we PONGed
+		if ponged {
+			fmt.Printf("sent a PONG back to %s", pleasant.ServerName)
 			continue
 		}
+
+		lineSplit := msgRegex.Split(line, -1) // TODO: apparently regex splitting isn't efficient, need to research this
 
 		if len(lineSplit) <= 13 { // at this point the message should be from chat, so confirm the length (this is just an approx)
 			continue

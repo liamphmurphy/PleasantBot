@@ -5,7 +5,6 @@ package bot
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"regexp"
@@ -61,56 +60,65 @@ func writeConfig(path string, configObject *viper.Viper) {
 	configObject.SetDefault("PostLinkPerm", uint(1)) // Minimum permission needed for non-purging links, in this case subscriber
 
 	configObject.WriteConfigAs(path)
-	fmt.Sprintf("Config file did not exist, so it has been made. Please go to %s and edit the settings.\n", path)
 }
 
-// CreateBot creates an instance of a bot
-func CreateBot() *Bot {
-	configDir, _ := os.UserConfigDir()        // follows the standard config dir used by the OS
-	pleasantDir := configDir + "/pleasantbot" // config.toml will go here
-	if _, err := os.Stat(pleasantDir); os.IsNotExist(err) {
-		os.Mkdir(pleasantDir, 0755)
+// CreateBot creates an instance of a bot. The caller needs to pass in where the config file should exist, the name of the config file,
+// and pass whether this path should be made if it doesn't exist already.
+// dbName will be the name of the database file located in the directory declared in configPath.
+func CreateBot(configPath, configName, dbName string, createIfNotExists bool, db *storage.Sqlite) (*Bot, error) {
+	if createIfNotExists {
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			os.Mkdir(configPath, 0755)
+		}
 	}
 
 	// prepare toml config file
 	viperConfig := viper.New()
-	viperConfig.SetConfigName("config")
-	viperConfig.AddConfigPath(pleasantDir)
-	// TODO: remove the creation of a default config to the driver main.go
+	viperConfig.SetConfigName(configName)
+	viperConfig.AddConfigPath(configPath)
 	if err := viperConfig.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok { // if config not found, write a default one
-			writeConfig(pleasantDir, viperConfig)
-			os.Exit(1) // write a better way to exit this gracefully
+			writeConfig(configPath, viperConfig)
+			return &Bot{}, fmt.Errorf("created the default config at %s, having to exit for now", configPath)
 		} else {
-			panic(fmt.Errorf("error reading in config file: %s", err))
+			return &Bot{}, fmt.Errorf("error reading in config file: %s", err)
 		}
 	}
 
 	var bot Bot
-	bot.DBPath = pleasantDir + "/pleasantbot.db"
+	bot.DBPath = fmt.Sprintf("%s/%s", configPath, dbName)
 	bot.Config = viperConfig
 
-	return &bot
+	err := db.Init(bot.DBPath)
+	if err != nil {
+		return &Bot{}, err
+	}
+	bot.DB = *db
+
+	err = bot.loadBot()
+
+	return &bot, err
 }
 
-func (bot *Bot) LoadBot() {
+// loadBot populates many of the misc. struct field values
+func (bot *Bot) loadBot() error {
 	var err error
 	// load data
 	bot.Commands = make(map[string]*CommandValue)
 	err = bot.LoadCommands()
 	if err != nil {
-		log.Fatalf("error loading commands from the database: %s\n", err)
+		return err
 	}
 
 	bot.Quotes = make(map[int]*QuoteValues)
 	err = bot.LoadQuotes()
 	if err != nil {
-		log.Fatalf("error loading quotes from the database: %s\n", err)
+		return err
 	}
 
 	err = bot.LoadBadWords()
 	if err != nil {
-		log.Fatalf("error loading bannable words from the database: %s\n", err)
+		return err
 	}
 
 	// assign bot values provided by the config file
@@ -131,30 +139,29 @@ func (bot *Bot) LoadBot() {
 	} else {
 		bot.Authenticated = false
 	}
+
+	return err
 }
 
 // Connect establishes a connection to the Twitch IRC server
 func (bot *Bot) Connect() error {
 	var err error
-	conf := &tls.Config{
-		//InsecureSkipVerify: true,
-	}
 	if bot.Conn != nil {
 		return fmt.Errorf("ERROR: the bot has already established an IRC connection")
 	}
-	bot.Conn, err = tls.Dial("tcp", bot.ServerName, conf)
-	///bot.Conn, err = net.Dial("tcp", bot.ServerName)
+	bot.Conn, err = tls.Dial("tcp", bot.ServerName, &tls.Config{})
 	return err
 }
 
-// WriteToTwitch when given a string sends a properly formatted message to Twitch, easy replacement for using fmt.Fprintf
-func (bot *Bot) WriteToTwitch(msg string) {
-	fmt.Fprintf(bot.Conn, "%s\r\n", msg)
+// WriteToConn when given a string sends a properly formatted message, easy replacement for using fmt.Fprintf
+func (bot *Bot) WriteToConn(msg string) error {
+	_, err := fmt.Fprintf(bot.Conn, "%s\r\n", msg)
+	return err
 }
 
 // SendMessage prepares and sends a string to the channel's Twitch chat
 func (bot *Bot) SendMessage(msg string) {
-	bot.WriteToTwitch(fmt.Sprintf("PRIVMSG #%s :%s", bot.ChannelName, msg))
+	bot.WriteToConn(fmt.Sprintf("PRIVMSG #%s :%s", bot.ChannelName, msg))
 }
 
 // Itob converts an integer (0 or 1) to a corresponding boolean. Mainly used for command moderator perms
@@ -213,4 +220,17 @@ func (bot *Bot) SetOAuth(token string) {
 	bot.oauth = newToken // set runtime oauth
 	bot.Authenticated = true
 	bot.Config.WriteConfig() // update config with new oauth token
+}
+
+// HandlePing will send a PONG as a response to a PING. Returns true if a PONG had to be sent
+// pingIndicator is the string to check for
+func (bot *Bot) HandlePing(message, pingIndicator string) (bool, error) {
+	contained := strings.Contains(message, pingIndicator)
+	if contained {
+		err := bot.WriteToConn("PONG :tmi.twitch.tv")
+		if err != nil {
+			return false, err
+		}
+	}
+	return contained, nil
 }
