@@ -40,9 +40,11 @@ type Bot struct {
 	Commands         map[string]*CommandValue `json:"-"`
 	BadWords         []BadWord                `json:"-"`
 	Quotes           map[int]*QuoteValues     `json:"-"`
+	Timers           map[string]*TimedValue   `json:"-"`
 	PermittedUsers   map[string]struct{}      // list of users that can post links
 	CommandDBColumns []string                 `json:"-"` // used for InsertIntoDB calls
 	QuoteDBColumns   []string                 `json:"-"`
+	TimerDBColumns   []string                 `json:"-"`
 }
 
 // writeConfig is run whenever the config.toml file doesn't exist, usually after a fresh download of the bot.
@@ -121,6 +123,12 @@ func (bot *Bot) loadBot() error {
 		return err
 	}
 
+	bot.Timers = make(map[string]*TimedValue)
+	err = bot.LoadTimers()
+	if err != nil {
+		return err
+	}
+
 	// assign bot values provided by the config file
 	bot.ChannelName = bot.Config.GetString("ChannelName")
 	bot.ServerName = bot.Config.GetString("ServerName")
@@ -132,6 +140,7 @@ func (bot *Bot) loadBot() error {
 	bot.EnableServer = bot.Config.GetBool("EnableServer")
 	bot.CommandDBColumns = []string{"commandname", "commandresponse", "perm", "count"}
 	bot.QuoteDBColumns = []string{"quote", "timestamp", "submitter"}
+	bot.TimerDBColumns = []string{"timername", "response", "minutes", "enabled"}
 
 	// determine using the oauth string whether the user has logged in yet
 	if bot.oauth != "oauth:" && bot.oauth != "" {
@@ -159,8 +168,8 @@ func (bot *Bot) WriteToConn(msg string) error {
 	return err
 }
 
-// SendMessage prepares and sends a string to the channel's Twitch chat
-func (bot *Bot) SendMessage(msg string) {
+// SendTwitchMessage prepares and sends a string to the channel's Twitch chat
+func (bot *Bot) SendTwitchMessage(msg string) {
 	bot.WriteToConn(fmt.Sprintf("PRIVMSG #%s :%s", bot.ChannelName, msg))
 }
 
@@ -178,7 +187,7 @@ func (bot *Bot) FilterForSpam(message User) {
 				delete(bot.PermittedUsers, message.Name) // found, do nothing except delete from the map
 			} else {
 				bot.purgeUser(message.Name) // not permitted, so purge user
-				bot.SendMessage(fmt.Sprintf("%s, you do not have permissions to post links.", message.Name))
+				bot.SendTwitchMessage(fmt.Sprintf("%s, you do not have permissions to post links.", message.Name))
 			}
 		}
 	}
@@ -197,12 +206,12 @@ func (bot *Bot) AddPermittedUser(username string) {
 
 // purges a user by sending a timeout of 1 second
 func (bot *Bot) purgeUser(username string) {
-	bot.SendMessage(fmt.Sprintf("/timeout %s 1", username))
+	bot.SendTwitchMessage(fmt.Sprintf("/timeout %s 1", username))
 }
 
 func (bot *Bot) banUser(username string, reason string) {
 	bot.DB.Insert("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
-	bot.SendMessage(fmt.Sprintf("/ban %s", username))
+	bot.SendTwitchMessage(fmt.Sprintf("/ban %s", username))
 }
 
 // GetOAuth returns the bot's oauth token

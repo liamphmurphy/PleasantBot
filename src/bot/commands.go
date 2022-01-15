@@ -48,7 +48,7 @@ func (bot *Bot) RemoveCommand(key string) bool {
 		delete(bot.Commands, key)                            // deletes from the commands map
 		err := bot.DB.Delete("commands", "commandname", key) // deletes permanently from the DB
 		if err == nil {
-			bot.SendMessage(fmt.Sprintf("%s has been deleted.", key))
+			bot.SendTwitchMessage(fmt.Sprintf("%s has been deleted.", key))
 		}
 	}
 	return found
@@ -82,9 +82,9 @@ func (bot *Bot) DefaultCommands(user User) bool {
 	case "addcom": // add a new custom command
 		err := bot.AddCommand(item)
 		if err == nil {
-			bot.SendMessage("The new command was added successfully.")
+			bot.SendTwitchMessage("The new command was added successfully.")
 		} else {
-			bot.SendMessage(fmt.Sprintf("The bot returned the following error: %s", err))
+			bot.SendTwitchMessage(fmt.Sprintf("The bot returned the following error: %s", err))
 		}
 
 	case "delcom":
@@ -94,30 +94,30 @@ func (bot *Bot) DefaultCommands(user User) bool {
 		if user.Content == "!quote" { // if entire message is just !quote, user is asking for the bot to return a random quote
 			quote, err := bot.RandomQuote()
 			if err != nil {
-				bot.SendMessage(fmt.Sprintf("Error finding a quote: %s", err))
+				bot.SendTwitchMessage(fmt.Sprintf("Error finding a quote: %s", err))
 				return false
 			}
-			bot.SendMessage(quote)
+			bot.SendTwitchMessage(quote)
 		} else { // otherwise, count on them at least attempting in getting a specific quote
 			id, err := strconv.Atoi(item.Key)
 			if err != nil {
-				bot.SendMessage("id for the quote must be a valid positive integer")
+				bot.SendTwitchMessage("id for the quote must be a valid positive integer")
 			}
 			quote, err := bot.GetQuote(id)
 			if err != nil {
-				bot.SendMessage(fmt.Sprintf("Error finding a quote: %s", err))
+				bot.SendTwitchMessage(fmt.Sprintf("Error finding a quote: %s", err))
 				return false
 			}
-			bot.SendMessage(quote)
+			bot.SendTwitchMessage(quote)
 		}
 	case "addquote":
 		bot.AddQuote(item.Contents, user.Name)
 	case "subon": // turn on subscribers only mode
-		bot.SendMessage("/subscribers")
-		bot.SendMessage("Subscriber only mode is now on.")
+		bot.SendTwitchMessage("/subscribers")
+		bot.SendTwitchMessage("Subscriber only mode is now on.")
 	case "suboff": // turn off subscribers only mode
-		bot.SendMessage("/subscribersoff")
-		bot.SendMessage("Subscriber only mode is now off.")
+		bot.SendTwitchMessage("/subscribersoff")
+		bot.SendTwitchMessage("Subscriber only mode is now off.")
 	default:
 		cmdFound = false
 	}

@@ -17,6 +17,10 @@ import (
 )
 
 func main() {
+	run()
+}
+
+func run() {
 	configPath, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -65,6 +69,8 @@ func main() {
 
 	fmt.Printf("Bot: %s\nChannel: %s\n", pleasant.Name, pleasant.ChannelName)
 
+	pleasant.RunTimers()
+
 	// keep reading messages until some end condition is reached
 	for {
 		line, err := proto.ReadLine()
@@ -106,7 +112,7 @@ func main() {
 
 			comPerm, err := pleasant.ConvertPermToInt(com.Perm) // see if it is a custom command request
 			if message.Perm >= comPerm && err == nil {          // send message if user has permission and there were no errors finding the command
-				pleasant.SendMessage(com.Response)
+				pleasant.SendTwitchMessage(com.Response)
 				go pleasant.IncrementCommandCount(message.Content) // increment command count
 			}
 		}

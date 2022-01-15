@@ -53,7 +53,7 @@ func (bot *Bot) getBanHistory(c *gin.Context) {
 	var history []banHistory
 
 	defer rows.Close()
-	for rows.Next() { // scan through results from query and assign to the Commands slice
+	for rows.Next() {
 		var user, reason, timestamp string
 		rows.Scan(&user, &reason, &timestamp)
 		history = append(history, banHistory{User: user, Reason: reason, Timestamp: timestamp})
