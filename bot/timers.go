@@ -46,8 +46,9 @@ func (bot *Bot) RunTimers() {
 	}
 }
 
+// LoadTimers gets all of the timers that exist in storage
 func (bot *Bot) LoadTimers() error {
-	rows, err := bot.DB.Query(fmt.Sprintf("select %s from timers", strings.Join(bot.TimerDBColumns, ",")))
+	rows, err := bot.Storage.DB.Query(fmt.Sprintf("select %s from timers", strings.Join(bot.Storage.TimerColumns, ",")))
 	if err != nil {
 		return err
 	}

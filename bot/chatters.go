@@ -73,14 +73,14 @@ func (bot *Bot) UpdateChatterCount(user string) error {
 
 	// check if user is already in DB
 	stmt := fmt.Sprintf("INSERT OR IGNORE INTO chatters (username, count) VALUES ('%s', '0')", user) // prepare statement string
-	err = bot.DB.ArbitraryExec(stmt)
+	err = bot.Storage.DB.ArbitraryExec(stmt)
 	if err != nil {
 		return fmt.Errorf("error inserting user %s into chatters. error: %s", user, err)
 	}
 
 	// TODO: figure out way to generalize this and previous statement or reduce lines of code
 	stmt = fmt.Sprintf("UPDATE chatters SET count = count + 1 WHERE username='%s'", user)
-	err = bot.DB.ArbitraryExec(stmt)
+	err = bot.Storage.DB.ArbitraryExec(stmt)
 	if err != nil {
 		return fmt.Errorf("error updating the count for %s. error: %s", user, err)
 	}

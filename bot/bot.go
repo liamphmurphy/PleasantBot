@@ -4,6 +4,7 @@ package bot
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
@@ -29,7 +30,6 @@ type Bot struct {
 	Authenticated   bool
 	Conn            net.Conn `json:"-"`
 	Storage         *Database
-	DBPath          string `json:"-"`
 	PurgeForLinks   bool
 	PurgeForLongMsg bool
 	LongMsgAmount   int
@@ -48,35 +48,43 @@ type Bot struct {
 // defines some DB options, specifically the columns for the various tables
 type Database struct {
 	DB             storage.Sqlite `json:"-"`
-	CommandColumns []string       // used for InsertIntoDB calls
+	Path           string         `json:"-"` // path to the database file
+	CommandColumns []string
 	QuoteColumns   []string
 	TimerColumns   []string
 }
 
-// CreateBot creates an instance of a bot. The caller needs to pass in where the config file should exist, the name of the config file,
-// and pass whether this path should be made if it doesn't exist already.
-// dbName will be the name of the database file located in the directory declared in configPath.
-func CreateBot(configPath, configName, dbName string, createIfNotExists bool, viper *viper.Viper, storage Database) (*Bot, error) {
+type BotLoaderFunc func(bot *Bot) error
+
+var errNoViper = errors.New("the bot has a nil viper config struct, this needs to be made first")
+
+// CreateBot creates an instance of a bot. The function makes no assumptions on what the viper config, Database, and
+// loader funcs for the database and bot data loading should be. It just makes the assumption that these loaders MUST exist, so
+// the caller may pass in custom ones based on the needs of the service (e.g. twitch, youtube, etc.) or it may use the default ones
+// listed in this package.
+func CreateBot(viper *viper.Viper, storage Database, dbInit storage.InitFunc, loader BotLoaderFunc) (*Bot, error) {
 	var bot Bot
-	bot.DBPath = fmt.Sprintf("%s/%s", configPath, dbName)
+	if viper == nil {
+		return &bot, FatalError{Err: errNoViper}
+	}
 	bot.Config = viper
 
-	err := storage.DB.Init(bot.DBPath)
+	err := dbInit(storage.Path, &storage.DB)
 	if err != nil {
 		return &Bot{}, err
 	}
 	bot.Storage = &storage
 
-	err = bot.loadBot()
+	// load bot data using the passed in loader
+	err = loader(&bot)
 
 	return &bot, err
 }
 
-// loadBot populates many of the misc. struct field values
-func (bot *Bot) loadBot() error {
-
+// LoadBot populates many of the misc. struct field values
+func LoadBot(bot *Bot) error {
 	if bot.Config == nil {
-		return fmt.Errorf("the bot has a nil viper config struct, this needs to be made first")
+		return FatalError{Err: errNoViper}
 	}
 
 	// assign bot values provided by the config file
@@ -175,7 +183,7 @@ func (bot *Bot) purgeUser(username string) {
 }
 
 func (bot *Bot) banUser(username string, reason string) {
-	bot.DB.Insert("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
+	bot.Storage.DB.Insert("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
 	bot.SendTwitchMessage(fmt.Sprintf("/ban %s", username))
 }
 

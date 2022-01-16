@@ -20,7 +20,7 @@ type QuoteValues struct {
 func (bot *Bot) AddQuote(quote string, submitter string) error {
 	// prepare the quote with an added date and time
 	date := time.Now().Format("2006-01-02")
-	err := bot.DB.Insert("quotes", bot.QuoteDBColumns, []string{quote, date, submitter})
+	err := bot.Storage.DB.Insert("quotes", bot.Storage.QuoteColumns, []string{quote, date, submitter})
 	bot.LoadQuotes()
 	return err
 }
@@ -46,7 +46,7 @@ func (bot *Bot) RandomQuote() (string, error) {
 // LoadQuotes loads all quotes from the DB.
 // TODO: generalize this for all loading functions
 func (bot *Bot) LoadQuotes() error {
-	rows, err := bot.DB.Query("select id, quote, timestamp, submitter from quotes")
+	rows, err := bot.Storage.DB.Query("select id, quote, timestamp, submitter from quotes")
 	if err != nil {
 		return err
 	}

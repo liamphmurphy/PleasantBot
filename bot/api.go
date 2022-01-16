@@ -49,7 +49,7 @@ func (bot *Bot) getQuotes(c *gin.Context) {
 
 // return JSON representation of ban_history events
 func (bot *Bot) getBanHistory(c *gin.Context) {
-	rows, _ := bot.DB.Query("select user, reason, timestamp from ban_history ORDER BY timestamp DESC;")
+	rows, _ := bot.Storage.DB.Query("select user, reason, timestamp from ban_history ORDER BY timestamp DESC;")
 	var history []banHistory
 
 	defer rows.Close()
@@ -87,7 +87,7 @@ func (bot *Bot) addComHandler(c *gin.Context) {
 	}
 
 	// First add new command to database
-	err = bot.DB.Insert("commands", bot.CommandDBColumns, []string{comValues.Name, comValues.Resp, comValues.Perm, "0"})
+	err = bot.Storage.DB.Insert("commands", bot.Storage.CommandColumns, []string{comValues.Name, comValues.Resp, comValues.Perm, "0"})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"Status": "Error adding command to DB"})
 		log.Fatal(err)

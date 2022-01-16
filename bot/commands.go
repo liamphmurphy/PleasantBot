@@ -7,7 +7,6 @@ package bot
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -22,7 +21,7 @@ type CommandValue struct {
 func (bot *Bot) AddCommand(item Item) error {
 	bot.Commands[item.Key] = &CommandValue{Response: item.Contents, Perm: "all", Count: 0}
 
-	err := bot.DB.Insert("commands", bot.CommandDBColumns, []string{item.Key, bot.Commands[item.Key].Response, "all", "0"})
+	err := bot.Storage.DB.Insert("commands", bot.Storage.CommandColumns, []string{item.Key, bot.Commands[item.Key].Response, "all", "0"})
 	if err != nil {
 		return err
 	}
@@ -45,8 +44,8 @@ func (bot *Bot) FindCommand(key string) (CommandValue, error) {
 func (bot *Bot) RemoveCommand(key string) bool {
 	var found bool
 	if _, found := bot.Commands[key]; found {
-		delete(bot.Commands, key)                            // deletes from the commands map
-		err := bot.DB.Delete("commands", "commandname", key) // deletes permanently from the DB
+		delete(bot.Commands, key)                                    // deletes from the commands map
+		err := bot.Storage.DB.Delete("commands", "commandname", key) // deletes permanently from the DB
 		if err == nil {
 			bot.SendTwitchMessage(fmt.Sprintf("%s has been deleted.", key))
 		}
@@ -57,7 +56,7 @@ func (bot *Bot) RemoveCommand(key string) bool {
 // IncrementCommandCount takes in a command name (key) and increments the associated count value in the DB
 func (bot *Bot) IncrementCommandCount(command string) error {
 	stmt := fmt.Sprintf("UPDATE commands SET count = count + 1 WHERE commandname = '%s'", command) // prepare statement tring
-	err := bot.DB.ArbitraryExec(stmt)
+	err := bot.Storage.DB.ArbitraryExec(stmt)
 	if err != nil {
 		return fmt.Errorf("Error updating the count for %s. Error: %s", command, err)
 	}
@@ -65,7 +64,7 @@ func (bot *Bot) IncrementCommandCount(command string) error {
 }
 
 // DefaultCommands takes in a potential command request and sees if it is one of the default commands
-func (bot *Bot) DefaultCommander(user User) bool {
+/*func (bot *Bot) DefaultCommander(user ser) bool {
 	cmdFound := true
 
 	var item Item
@@ -124,10 +123,11 @@ func (bot *Bot) DefaultCommander(user User) bool {
 
 	return cmdFound
 }
+*/
 
 // LoadCommands queries the sqlite3 database for existing commands
 func (bot *Bot) LoadCommands() error {
-	rows, err := bot.DB.Query("select commandname, commandresponse, perm from commands")
+	rows, err := bot.Storage.DB.Query("select commandname, commandresponse, perm from commands")
 	if err != nil {
 		return err
 	}

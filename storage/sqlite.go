@@ -14,6 +14,8 @@ type Sqlite struct {
 	db *sql.DB
 }
 
+type InitFunc func(path string, sq *Sqlite) error
+
 // this should only run in a sqlite Init call, when the database file is not found in the config directory
 func prepareDatabase(db *sql.DB) {
 	stmt := `
@@ -30,7 +32,7 @@ func prepareDatabase(db *sql.DB) {
 	}
 }
 
-func (sq *Sqlite) Init(path string) error {
+func Init(path string, sq *Sqlite) error {
 	// prepare Sqlite 3 database
 	if _, err := os.Stat(path); os.IsNotExist(err) { // make database file if it doesn't exist
 		os.Create(path)
