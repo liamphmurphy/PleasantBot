@@ -21,45 +21,51 @@ var (
 
 // Bot struct contains the necessary data to run an instance of a bot
 type Bot struct {
-	Name             string
-	ChannelName      string
-	ServerName       string
-	oauth            string         `json:"-"`
-	Config           *viper.Viper   `json:"-"`
-	Authenticated    bool           // used to tell the front-end GUI whether the bot has been authenticated yet
-	Conn             net.Conn       `json:"-"`
-	DB               storage.Sqlite `json:"-"`
-	DBPath           string         `json:"-"`
-	PurgeForLinks    bool
-	PurgeForLongMsg  bool
-	LongMsgAmount    int
-	EnableServer     bool
-	PostLinkPerm     uint8
-	Perms            []string                 `json:"-"` // holds a list of users that can post a link
-	DefaultCommands  []DefaultCommand         `json:"-"`
-	Commands         map[string]*CommandValue `json:"-"`
-	BadWords         []BadWord                `json:"-"`
-	Quotes           map[int]*QuoteValues     `json:"-"`
-	Timers           map[string]*TimedValue   `json:"-"`
-	PermittedUsers   map[string]struct{}      // list of users that can post links
-	CommandDBColumns []string                 `json:"-"` // used for InsertIntoDB calls
-	QuoteDBColumns   []string                 `json:"-"`
-	TimerDBColumns   []string                 `json:"-"`
+	Name            string
+	ChannelName     string
+	ServerName      string
+	oauth           string       `json:"-"`
+	Config          *viper.Viper `json:"-"`
+	Authenticated   bool
+	Conn            net.Conn `json:"-"`
+	Storage         *Database
+	DBPath          string `json:"-"`
+	PurgeForLinks   bool
+	PurgeForLongMsg bool
+	LongMsgAmount   int
+	EnableServer    bool
+	PostLinkPerm    uint8
+	Perms           []string                 `json:"-"` // holds a list of users that can post a link
+	DefaultCommands []DefaultCommand         `json:"-"`
+	Commands        map[string]*CommandValue `json:"-"`
+	BadWords        []BadWord                `json:"-"`
+	Quotes          map[int]*QuoteValues     `json:"-"`
+	Timers          map[string]*TimedValue   `json:"-"`
+	PermittedUsers  map[string]struct{}      // list of users that can post links
+
+}
+
+// defines some DB options, specifically the columns for the various tables
+type Database struct {
+	DB             storage.Sqlite `json:"-"`
+	CommandColumns []string       // used for InsertIntoDB calls
+	QuoteColumns   []string
+	TimerColumns   []string
 }
 
 // CreateBot creates an instance of a bot. The caller needs to pass in where the config file should exist, the name of the config file,
 // and pass whether this path should be made if it doesn't exist already.
 // dbName will be the name of the database file located in the directory declared in configPath.
-func CreateBot(configPath, configName, dbName string, createIfNotExists bool, db *storage.Sqlite, viper *viper.Viper) (*Bot, error) {
+func CreateBot(configPath, configName, dbName string, createIfNotExists bool, viper *viper.Viper, storage Database) (*Bot, error) {
 	var bot Bot
 	bot.DBPath = fmt.Sprintf("%s/%s", configPath, dbName)
 	bot.Config = viper
 
-	err := db.Init(bot.DBPath)
+	err := storage.DB.Init(bot.DBPath)
 	if err != nil {
 		return &Bot{}, err
 	}
-	bot.DB = *db
+	bot.Storage = &storage
 
 	err = bot.loadBot()
 
@@ -68,6 +74,10 @@ func CreateBot(configPath, configName, dbName string, createIfNotExists bool, db
 
 // loadBot populates many of the misc. struct field values
 func (bot *Bot) loadBot() error {
+
+	if bot.Config == nil {
+		return fmt.Errorf("the bot has a nil viper config struct, this needs to be made first")
+	}
 
 	// assign bot values provided by the config file
 	bot.ChannelName = bot.Config.GetString("ChannelName")
@@ -78,9 +88,6 @@ func (bot *Bot) loadBot() error {
 	bot.PurgeForLongMsg = bot.Config.GetBool("PurgeForLongMsg")
 	bot.LongMsgAmount = bot.Config.GetInt("LongMsgAmount")
 	bot.EnableServer = bot.Config.GetBool("EnableServer")
-	bot.CommandDBColumns = []string{"commandname", "commandresponse", "perm", "count"}
-	bot.QuoteDBColumns = []string{"quote", "timestamp", "submitter"}
-	bot.TimerDBColumns = []string{"timername", "message", "minutes", "enabled"}
 
 	var err error
 	// load data
@@ -105,13 +112,6 @@ func (bot *Bot) loadBot() error {
 	err = bot.LoadTimers()
 	if err != nil {
 		return err
-	}
-
-	// determine using the oauth string whether the user has logged in yet
-	if bot.oauth != "oauth:" && bot.oauth != "" {
-		bot.Authenticated = true
-	} else {
-		bot.Authenticated = false
 	}
 
 	return err
