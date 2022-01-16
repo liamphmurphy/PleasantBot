@@ -6,12 +6,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/murnux/pleasantbot/storage"
+	"github.com/liamphmurphy/pleasantbot/storage"
 
 	"github.com/spf13/viper"
 )
@@ -68,29 +67,10 @@ func writeConfig(path string, configObject *viper.Viper) {
 // CreateBot creates an instance of a bot. The caller needs to pass in where the config file should exist, the name of the config file,
 // and pass whether this path should be made if it doesn't exist already.
 // dbName will be the name of the database file located in the directory declared in configPath.
-func CreateBot(configPath, configName, dbName string, createIfNotExists bool, db *storage.Sqlite) (*Bot, error) {
-	if createIfNotExists {
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
-			os.Mkdir(configPath, 0755)
-		}
-	}
-
-	// prepare toml config file
-	viperConfig := viper.New()
-	viperConfig.SetConfigName(configName)
-	viperConfig.AddConfigPath(configPath)
-	if err := viperConfig.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok { // if config not found, write a default one
-			writeConfig(configPath, viperConfig)
-			return &Bot{}, fmt.Errorf("created the default config at %s, having to exit for now", configPath)
-		} else {
-			return &Bot{}, fmt.Errorf("error reading in config file: %s", err)
-		}
-	}
-
+func CreateBot(configPath, configName, dbName string, createIfNotExists bool, db *storage.Sqlite, viper *viper.Viper) (*Bot, error) {
 	var bot Bot
 	bot.DBPath = fmt.Sprintf("%s/%s", configPath, dbName)
-	bot.Config = viperConfig
+	bot.Config = viper
 
 	err := db.Init(bot.DBPath)
 	if err != nil {
@@ -158,7 +138,7 @@ func (bot *Bot) loadBot() error {
 func (bot *Bot) Connect() error {
 	var err error
 	if bot.Conn != nil {
-		return fmt.Errorf("ERROR: the bot has already established an IRC connection")
+		return fmt.Errorf("ERROR: the bot has already established a connection")
 	}
 	bot.Conn, err = tls.Dial("tcp", bot.ServerName, &tls.Config{})
 	return err

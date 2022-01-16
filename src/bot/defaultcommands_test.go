@@ -56,6 +56,7 @@ func TestRunDefaultCommands(t *testing.T) {
 			}
 		}
 
+		// test if we got the expected error (if any)
 		if err != nil && (test.wantErr.Error() != err.Error()) {
 			t.Errorf("did not get an expected error\ngot - %v\nwant - %v", err, test.wantErr)
 		}
