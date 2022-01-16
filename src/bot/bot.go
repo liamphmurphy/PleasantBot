@@ -37,6 +37,7 @@ type Bot struct {
 	EnableServer     bool
 	PostLinkPerm     uint8
 	Perms            []string                 `json:"-"` // holds a list of users that can post a link
+	DefaultCommands  []DefaultCommand         `json:"-"`
 	Commands         map[string]*CommandValue `json:"-"`
 	BadWords         []BadWord                `json:"-"`
 	Quotes           map[int]*QuoteValues     `json:"-"`
@@ -104,6 +105,20 @@ func CreateBot(configPath, configName, dbName string, createIfNotExists bool, db
 
 // loadBot populates many of the misc. struct field values
 func (bot *Bot) loadBot() error {
+
+	// assign bot values provided by the config file
+	bot.ChannelName = bot.Config.GetString("ChannelName")
+	bot.ServerName = bot.Config.GetString("ServerName")
+	bot.oauth = bot.Config.GetString("BotOAuth")
+	bot.Name = bot.Config.GetString("BotName")
+	bot.PurgeForLinks = bot.Config.GetBool("PurgeForLinks")
+	bot.PurgeForLongMsg = bot.Config.GetBool("PurgeForLongMsg")
+	bot.LongMsgAmount = bot.Config.GetInt("LongMsgAmount")
+	bot.EnableServer = bot.Config.GetBool("EnableServer")
+	bot.CommandDBColumns = []string{"commandname", "commandresponse", "perm", "count"}
+	bot.QuoteDBColumns = []string{"quote", "timestamp", "submitter"}
+	bot.TimerDBColumns = []string{"timername", "message", "minutes", "enabled"}
+
 	var err error
 	// load data
 	bot.Commands = make(map[string]*CommandValue)
@@ -128,19 +143,6 @@ func (bot *Bot) loadBot() error {
 	if err != nil {
 		return err
 	}
-
-	// assign bot values provided by the config file
-	bot.ChannelName = bot.Config.GetString("ChannelName")
-	bot.ServerName = bot.Config.GetString("ServerName")
-	bot.oauth = bot.Config.GetString("BotOAuth")
-	bot.Name = bot.Config.GetString("BotName")
-	bot.PurgeForLinks = bot.Config.GetBool("PurgeForLinks")
-	bot.PurgeForLongMsg = bot.Config.GetBool("PurgeForLongMsg")
-	bot.LongMsgAmount = bot.Config.GetInt("LongMsgAmount")
-	bot.EnableServer = bot.Config.GetBool("EnableServer")
-	bot.CommandDBColumns = []string{"commandname", "commandresponse", "perm", "count"}
-	bot.QuoteDBColumns = []string{"quote", "timestamp", "submitter"}
-	bot.TimerDBColumns = []string{"timername", "response", "minutes", "enabled"}
 
 	// determine using the oauth string whether the user has logged in yet
 	if bot.oauth != "oauth:" && bot.oauth != "" {
@@ -233,10 +235,10 @@ func (bot *Bot) SetOAuth(token string) {
 
 // HandlePing will send a PONG as a response to a PING. Returns true if a PONG had to be sent
 // pingIndicator is the string to check for
-func (bot *Bot) HandlePing(message, pingIndicator string) (bool, error) {
+func (bot *Bot) HandlePing(message, pingIndicator, response string) (bool, error) {
 	contained := strings.Contains(message, pingIndicator)
 	if contained {
-		err := bot.WriteToConn("PONG :tmi.twitch.tv")
+		err := bot.WriteToConn(response)
 		if err != nil {
 			return false, err
 		}

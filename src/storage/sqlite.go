@@ -22,7 +22,7 @@ func prepareDatabase(db *sql.DB) {
 	CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY, quote TEXT, timestamp TEXT, submitter TEXT);
 	CREATE TABLE IF NOT EXISTS ban_history (user TEXT, reason TEXT, timestamp TEXT);
 	CREATE TABLE IF NOT EXISTS chatters (username TEXT PRIMARY KEY, count INT);
-	CREATE TABLE IF NOT EXISTS timers (timername TEXT UNIQUE, message TEXT, minutes INTEGER);
+	CREATE TABLE IF NOT EXISTS timers (timername TEXT UNIQUE, message TEXT, minutes INTEGER, enabled INTEGER);
 	`
 	_, err := db.Exec(stmt)
 	if err != nil {
@@ -40,14 +40,14 @@ func (sq *Sqlite) Init(path string) error {
 		return err
 	}
 
-	sq.db  = db
+	sq.db = db
 	prepareDatabase(db) // creates and prepares the bot's database
 
 	return nil
 }
 
 // Query takes in a query and returns the resulting rows
-func (sq *Sqlite) Query(query string) (*sql.Rows, error)  {
+func (sq *Sqlite) Query(query string) (*sql.Rows, error) {
 	rows, err := sq.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func (sq *Sqlite) Query(query string) (*sql.Rows, error)  {
 	return rows, nil
 }
 
-func (sq *Sqlite) Insert(tableName string, columns []string, values[]string) error {
+func (sq *Sqlite) Insert(tableName string, columns []string, values []string) error {
 	if len(columns) != len(values) { // columns and values must be the same length
 		return fmt.Errorf("the columns and values arrays must be of the same size")
 	}
@@ -75,7 +75,7 @@ func (sq *Sqlite) Insert(tableName string, columns []string, values[]string) err
 	_, err := sq.db.Exec(stmt)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") { // duplicate entry is the most expected error to occur
-			return fmt.Errorf(fmt.Sprintf("the command '%s' already exists", values[0]))
+			return fmt.Errorf(fmt.Sprintf("the item '%s' already exists", values[0]))
 		}
 		return err // if the exact error isn't known, return the original error
 	}
@@ -83,11 +83,10 @@ func (sq *Sqlite) Insert(tableName string, columns []string, values[]string) err
 }
 
 func (sq *Sqlite) Delete(tableName string, keyColumn string, keyValue string) error {
-	value := fmt.Sprintf("'%s'", keyValue) // sqlite requires quotes around value
-	stmt := fmt.Sprintf("delete from %s where %s = %s", tableName, keyColumn, value)
+	stmt := fmt.Sprintf("delete from %s where %s = '%s'", tableName, keyColumn, keyValue)
 	err := sq.ArbitraryExec(stmt)
 	if err != nil {
-		return fmt.Errorf("error deleting value %s from column %s due to error: %s", value, keyColumn, err)
+		return fmt.Errorf("error deleting value %s from column %s due to error: %s", keyValue, keyColumn, err)
 	}
 	return nil
 }

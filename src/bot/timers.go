@@ -33,10 +33,15 @@ func (bot *Bot) AddTimer(item Item) error {
 
 func (bot *Bot) RunTimers() {
 	for _, tv := range bot.Timers {
+		// TOOD: hot-reloading when a timer is enabled / disabled. This works now in a sense, but we have to spin up
+		// unneeded go routines if a command was never enabled to begin with.
 		go func(timedVal *TimedValue) {
-			for range time.NewTicker(time.Minute * time.Duration(timedVal.Minutes)).C {
-				bot.SendTwitchMessage(timedVal.Message)
+			if tv.Enabled {
+				for range time.NewTicker(time.Minute * time.Duration(timedVal.Minutes)).C {
+					bot.SendTwitchMessage(timedVal.Message)
+				}
 			}
+
 		}(tv)
 	}
 }

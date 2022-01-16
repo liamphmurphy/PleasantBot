@@ -65,7 +65,7 @@ func (bot *Bot) IncrementCommandCount(command string) error {
 }
 
 // DefaultCommands takes in a potential command request and sees if it is one of the default commands
-func (bot *Bot) DefaultCommands(user User) bool {
+func (bot *Bot) DefaultCommander(user User) bool {
 	cmdFound := true
 
 	var item Item

@@ -36,13 +36,13 @@ func parsePermissions(message []string) uint8 {
 	perm := 0
 
 	if parseMessageTrueOrFalse(message[10]) { // checks if user is a subscriber
-		if 1 > perm {
+		if perm < 1 {
 			perm = 1
 		}
 	}
 
 	if parseMessageTrueOrFalse(message[8]) { // checks if user is a moderator
-		if 2 > perm {
+		if perm < 2 {
 			perm = 2
 		}
 	}

@@ -16,11 +16,8 @@ import (
 	"github.com/murnux/pleasantbot/bot"
 )
 
+// TODO: re-work this absolute garbage
 func main() {
-	run()
-}
-
-func run() {
 	configPath, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -78,15 +75,14 @@ func run() {
 			fmt.Printf("error receiving message: %s\n", err)
 			os.Exit(1)
 		}
-		fmt.Println(line)
-		ponged, err := pleasant.HandlePing(line, pingIndicator)
+		ponged, err := pleasant.HandlePing(line, pingIndicator, "PONG :tmi.twitch.tv")
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
 
 		// skip further execution if we PONGed
 		if ponged {
-			fmt.Printf("sent a PONG back to %s", pleasant.ServerName)
+			fmt.Printf("sent a PONG back to %s\n", pleasant.ServerName)
 			continue
 		}
 

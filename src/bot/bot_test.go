@@ -32,7 +32,7 @@ func TestHandlePing(t *testing.T) {
 
 	for _, test := range tests {
 		bot := &Bot{Conn: &ConnMock{}}
-		result, err := bot.HandlePing(test.inputMessage, test.pingIndicator)
+		result, err := bot.HandlePing(test.inputMessage, test.pingIndicator, "PONG")
 		if err != nil {
 			if err.Error() != test.wantErr.Error() {
 				t.Errorf("got an unexpected error\nwant - %v\ngot - %v", test.wantErr, err)
