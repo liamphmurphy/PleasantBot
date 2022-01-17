@@ -42,12 +42,6 @@ func prepareDatabase(db *sql.DB) error {
 	return err
 }
 
-// HandleMessage will contain the root logic for handling any kind of message from twitch; whether from the IRC server itself,
-// or messages from the Twitch chat
-func (t *Twitch) HandleMessage(msg string) error {
-	return nil
-}
-
 // Run defines the main entry point for a Twitch bot
 func (t *Twitch) Run() error {
 	configDir, err := bot.GetConfigDirectory()
@@ -85,6 +79,8 @@ func (t *Twitch) Run() error {
 	reader := bufio.NewReader(t.Bot.Conn)
 	proto := textproto.NewReader(reader)
 
+	defaultActions := setupDefaultActions()
+
 	var line string
 	// keep running as long as the error is not a fatal error
 	for !errors.As(err, &bot.FatalError{}) {
@@ -92,9 +88,8 @@ func (t *Twitch) Run() error {
 		if err != nil {
 			continue
 		}
-
-		err = t.HandleMessage(line)
+		err = t.Handler(cleanUpTwitchResponse(line), defaultActions)
 	}
 
-	return nil
+	return err
 }

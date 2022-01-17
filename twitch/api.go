@@ -25,12 +25,6 @@ func (t *Twitch) initialConn(messages []string) error {
 	return nil
 }
 
-// SendTwitchMessage prepares and sends a string to the channel's Twitch chat. It is recommended that the twitch.Message
-// func be called instead of this.
-func (t *Twitch) sendTwitchMessage(msg string) error {
-	return t.Bot.WriteToConn(fmt.Sprintf("PRIVMSG #%s :%s", t.Bot.ChannelName, msg))
-}
-
 func (t *Twitch) craftInitialConnMessages() []string {
 	return []string{
 		fmt.Sprintf("PASS %s", t.Bot.GetOAuth()),
