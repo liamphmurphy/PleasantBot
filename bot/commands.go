@@ -5,7 +5,6 @@
 package bot
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -29,28 +28,31 @@ func (bot *Bot) AddCommand(item Item) error {
 }
 
 // FindCommand takes in a key (command name) and returns matching command, if found
-func (bot *Bot) FindCommand(key string) (CommandValue, error) {
-	var com *CommandValue
+func (bot *Bot) FindCommand(key string) (bool, CommandValue) {
+	var comValue CommandValue
 	com, found := bot.Commands[key]
-	var err error
-	if !found {
-		err = errors.New("could not find command")
-		return CommandValue{Response: "nil", Perm: "nil"}, err
+
+	// have to handle some nil pointer logic so we don't provide a nil pointer to the caller
+	if com == nil {
+		comValue = CommandValue{}
+	} else {
+		comValue = *com
 	}
-	return *com, err
+
+	return found, comValue
 }
 
 // RemoveCommand takes in a command name as a string, presumably from the chat, and removes it
-func (bot *Bot) RemoveCommand(key string) bool {
+func (bot *Bot) RemoveCommand(key string) (bool, error) {
 	var found bool
-	if _, found := bot.Commands[key]; found {
+	if _, found = bot.Commands[key]; found {
 		delete(bot.Commands, key)                                    // deletes from the commands map
 		err := bot.Storage.DB.Delete("commands", "commandname", key) // deletes permanently from the DB
-		if err == nil {
-			bot.SendTwitchMessage(fmt.Sprintf("%s has been deleted.", key))
+		if err != nil {
+			return found, err
 		}
 	}
-	return found
+	return found, nil
 }
 
 // IncrementCommandCount takes in a command name (key) and increments the associated count value in the DB

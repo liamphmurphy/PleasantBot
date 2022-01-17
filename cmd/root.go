@@ -33,10 +33,11 @@ var (
 		Use:   "pleasantbot",
 		Short: "",
 		Long:  ``,
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var botRunner Runner
 
-			switch cmd.Flag("service").Value.String() {
+			switch args[0] {
 			case "twitch":
 				botRunner = &twitch.Twitch{}
 			}
@@ -54,5 +55,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringP("service", "s", "", "choose what service to run on out of [twitch]")
+	//rootCmd.Flags().StringP("service", "s", "", "choose what service to run on out of [twitch]")
 }

@@ -18,9 +18,13 @@ func (conn ConnMock) Write(b []byte) (n int, err error) {
 	return -1, nil
 }
 
-func mockInitNoErr(path string, sq *storage.Sqlite) error { return nil }
+func mockInitNoErr(path string, sq *storage.Sqlite, prepareFunc storage.DatabasePrepareFunc) error {
+	return nil
+}
 
 func loaderStubNoError(bot *Bot) error { return nil }
+
+func (cm ConnMock) Message(msg string) error { return nil }
 
 func TestCreateBot(t *testing.T) {
 	tests := []struct {
@@ -50,7 +54,7 @@ func TestCreateBot(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		bot, err := CreateBot(test.inputViper, Database{}, test.inputInitFunc, test.inputLoaderFunc)
+		bot, err := CreateBot(test.inputViper, Database{}, test.inputInitFunc, test.inputLoaderFunc, nil)
 		if err != nil {
 			if test.wantErr == nil {
 				t.Errorf("got an error when none was expected: %v", err)
@@ -84,7 +88,7 @@ func TestHandlePing(t *testing.T) {
 
 	for _, test := range tests {
 		bot := &Bot{Conn: &ConnMock{}}
-		result, err := bot.HandlePing(test.inputMessage, test.pingIndicator, "PONG")
+		result, err := bot.HandlePing(test.inputMessage, test.pingIndicator, "PONG", ConnMock{})
 		if err != nil {
 			if err.Error() != test.wantErr.Error() {
 				t.Errorf("got an unexpected error\nwant - %v\ngot - %v", test.wantErr, err)

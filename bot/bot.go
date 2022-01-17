@@ -9,7 +9,6 @@ import (
 	"net"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/liamphmurphy/pleasantbot/storage"
 
@@ -17,6 +16,7 @@ import (
 )
 
 var (
+	// regex obtained from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 	urlRegex, _ = regexp.Compile(`[-a-zA-Z-1-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)`)
 )
 
@@ -45,16 +45,14 @@ type Bot struct {
 
 }
 
-// defines some DB options, specifically the columns for the various tables
-type Database struct {
-	DB             storage.Sqlite `json:"-"`
-	Path           string         `json:"-"` // path to the database file
-	CommandColumns []string
-	QuoteColumns   []string
-	TimerColumns   []string
-}
-
 type BotLoaderFunc func(bot *Bot) error
+
+// Messenger is used in those times where a function in the bot package HAS to send a message within its definition.
+// This is avoided whenever possible, since the caller (service) should be determining what to do. However there are rare
+// cases, such as with RunTimers, when a interface for sending messages is needed.
+type Messenger interface {
+	Message(msg string) error
+}
 
 var errNoViper = errors.New("the bot has a nil viper config struct, this needs to be made first")
 
@@ -62,14 +60,14 @@ var errNoViper = errors.New("the bot has a nil viper config struct, this needs t
 // loader funcs for the database and bot data loading should be. It just makes the assumption that these loaders MUST exist, so
 // the caller may pass in custom ones based on the needs of the service (e.g. twitch, youtube, etc.) or it may use the default ones
 // listed in this package.
-func CreateBot(viper *viper.Viper, storage Database, dbInit storage.InitFunc, loader BotLoaderFunc) (*Bot, error) {
+func CreateBot(viper *viper.Viper, storage Database, dbInit storage.InitFunc, loader BotLoaderFunc, prepareFunc storage.DatabasePrepareFunc) (*Bot, error) {
 	var bot Bot
 	if viper == nil {
 		return &bot, FatalError{Err: errNoViper}
 	}
 	bot.Config = viper
 
-	err := dbInit(storage.Path, &storage.DB)
+	err := dbInit(storage.Path, &storage.DB, prepareFunc)
 	if err != nil {
 		return &Bot{}, err
 	}
@@ -141,35 +139,15 @@ func (bot *Bot) WriteToConn(msg string) error {
 	return err
 }
 
-// SendTwitchMessage prepares and sends a string to the channel's Twitch chat
-func (bot *Bot) SendTwitchMessage(msg string) {
-	bot.WriteToConn(fmt.Sprintf("PRIVMSG #%s :%s", bot.ChannelName, msg))
-}
-
 // Itob converts an integer (0 or 1) to a corresponding boolean. Mainly used for command moderator perms
 func Itob(i int) bool {
 	return i == 1
 }
 
-// FilterForSpam parses user message for some config options such as PurgeForLinks to see if message could be spam
-func (bot *Bot) FilterForSpam(message User) {
-	if bot.PurgeForLinks { // if enabled, check if message contains a link
-		// regex obtained from top answer here: https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
-		if urlRegex.MatchString(message.Content) {
-			if _, permitted := bot.PermittedUsers[message.Name]; permitted || message.Perm >= bot.PostLinkPerm { // let user post if they are in the permit list or is a moderator / broadcaster
-				delete(bot.PermittedUsers, message.Name) // found, do nothing except delete from the map
-			} else {
-				bot.purgeUser(message.Name) // not permitted, so purge user
-				bot.SendTwitchMessage(fmt.Sprintf("%s, you do not have permissions to post links.", message.Name))
-			}
-		}
-	}
-
-	if bot.PurgeForLongMsg { // if enabled, check if a message is very long
-		if len(message.Content) >= bot.LongMsgAmount {
-			bot.purgeUser(message.Name)
-		}
-	}
+// DetectURl uses urlRegex to determine if the passed in message is a URL. The caller than perform whatever
+// action is desired with this information
+func (bot *Bot) DetectURL(message string) bool {
+	return urlRegex.MatchString(message)
 }
 
 // AddPermittedUser adds a user to the PermittedUsers slice, allowing them to post a link without being purged
@@ -177,14 +155,13 @@ func (bot *Bot) AddPermittedUser(username string) {
 	bot.PermittedUsers[username] = struct{}{}
 }
 
-// purges a user by sending a timeout of 1 second
-func (bot *Bot) purgeUser(username string) {
-	bot.SendTwitchMessage(fmt.Sprintf("/timeout %s 1", username))
-}
-
-func (bot *Bot) banUser(username string, reason string) {
-	bot.Storage.DB.Insert("ban_history", []string{"user", "reason", "timestamp"}, []string{username, reason, time.Now().Format("2006-01-02 15:04:05")}) // insert into ban_history table
-	bot.SendTwitchMessage(fmt.Sprintf("/ban %s", username))
+// DeletePermittedUser deletes a user from the permittedusers map if they exist in it
+func (bot *Bot) DeletePermittedUser(username string) bool {
+	var exists bool
+	if _, exists = bot.PermittedUsers[username]; exists {
+		delete(bot.PermittedUsers, username)
+	}
+	return exists
 }
 
 // GetOAuth returns the bot's oauth token
@@ -206,10 +183,10 @@ func (bot *Bot) SetOAuth(token string) {
 
 // HandlePing will send a PONG as a response to a PING. Returns true if a PONG had to be sent
 // pingIndicator is the string to check for
-func (bot *Bot) HandlePing(message, pingIndicator, response string) (bool, error) {
+func (bot *Bot) HandlePing(message, pingIndicator, response string, messenger Messenger) (bool, error) {
 	contained := strings.Contains(message, pingIndicator)
 	if contained {
-		err := bot.WriteToConn(response)
+		err := messenger.Message(response)
 		if err != nil {
 			return false, err
 		}

@@ -13,17 +13,16 @@ type BadWord struct {
 	Severity int // 0 for purge, 1 for perma ban
 }
 
-// ParseForBadWord reads in every chat message and sees if a bad word was found in the message.
-func (bot *Bot) ParseForBadWord(user User) {
+// ParseForBadWord reads in a string and sees if a bad word was found and returns that bad word.
+// Callers should check if the bool is true, then use the returned BadWord if true.
+func (bot *Bot) ParseForBadWord(msg string) (bool, BadWord) {
 	for i := range bot.BadWords { // search through all bad words
-		if strings.Contains(user.Content, bot.BadWords[i].Phrase) {
-			if bot.BadWords[i].Severity == 0 { // purge condition
-				bot.purgeUser(user.Name)
-			} else { // ban condition
-				bot.banUser(user.Name, "inputting a banned word")
-			}
+		if strings.Contains(msg, bot.BadWords[i].Phrase) {
+			return true, bot.BadWords[i]
 		}
 	}
+
+	return false, BadWord{}
 }
 
 // LoadBadWords loads all badwords from the databases

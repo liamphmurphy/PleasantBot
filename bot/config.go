@@ -11,7 +11,7 @@ import (
 
 // CreateViperConfig creates a viper object. The path is the directory where the config should reside, and name is the
 // filename.
-func CreateViperConfig(path, name, serverName string) (*viper.Viper, error) {
+func CreateViperConfig(path, name, configType, serverName string) (*viper.Viper, error) {
 	var v *viper.Viper
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, 0755) // create the config directory if needed
@@ -19,9 +19,10 @@ func CreateViperConfig(path, name, serverName string) (*viper.Viper, error) {
 
 	v = viper.New()
 	v.SetConfigName(name)
+	v.SetConfigType(configType)
 	v.AddConfigPath(path)
-	fullPath := fmt.Sprintf("%s/%s", path, name)
 
+	fullPath := fmt.Sprintf("%s/%s", path, name)
 	// attempt to read in the config
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -36,11 +37,13 @@ func CreateViperConfig(path, name, serverName string) (*viper.Viper, error) {
 	return v, nil
 }
 
-// GetHomeDirectory returns the home directory of the current user. This is the "default" location to put in pleasantbot's
-// config files, so Runners can use this function if desired.
-func GetHomeDirectory() (string, error) {
+// GetConfigDirectory the "default" location to put in pleasantbot's config files, so Runners can use this function if desired.
+func GetConfigDirectory() (string, error) {
 	home, err := os.UserHomeDir()
-	return home, FatalError{err}
+	if err != nil {
+		return home, FatalError{err}
+	}
+	return fmt.Sprintf("%s/.config/pleasantbot", home), nil
 }
 
 // writeConfig is run whenever the config.toml file doesn't exist, usually after a fresh download of the bot.

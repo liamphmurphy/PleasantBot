@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TimedValues contains the values needed to run a single timed command
+// TimedValues contains the values needed to run a single timed command.
 type TimedValue struct {
 	Message string
 	Minutes int
@@ -31,14 +31,15 @@ func (bot *Bot) AddTimer(item Item) error {
 	return nil
 }
 
-func (bot *Bot) RunTimers() {
+// RunTimers will loop over and run any timers in the database that are enabled.
+// A service who wants to use RunTimers must define a Messenger.Message definition so this function knows
+// how to send the timer's contents.
+func (bot *Bot) RunTimers(messenger Messenger) {
 	for _, tv := range bot.Timers {
-		// TOOD: hot-reloading when a timer is enabled / disabled. This works now in a sense, but we have to spin up
-		// unneeded go routines if a command was never enabled to begin with.
 		go func(timedVal *TimedValue) {
 			if tv.Enabled {
 				for range time.NewTicker(time.Minute * time.Duration(timedVal.Minutes)).C {
-					bot.SendTwitchMessage(timedVal.Message)
+					messenger.Message(timedVal.Message)
 				}
 			}
 

@@ -4,11 +4,12 @@ package bot
 
 import "fmt"
 
+// FatalError is an error that would warrant an immediate end to the bot
 type FatalError struct {
 	Err error
 }
 
-// NonFatalError explains that an error occured due to a non fatal condition and shouldn't be considered
+// NonFatalError explains that an error occurred due to a non fatal condition and shouldn't be considered
 // a terrible issue.
 type NonFatalError struct {
 	Err error

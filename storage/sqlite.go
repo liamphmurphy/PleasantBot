@@ -3,7 +3,6 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -14,25 +13,11 @@ type Sqlite struct {
 	db *sql.DB
 }
 
-type InitFunc func(path string, sq *Sqlite) error
+type InitFunc func(path string, sq *Sqlite, prepareFunc DatabasePrepareFunc) error
 
-// this should only run in a sqlite Init call, when the database file is not found in the config directory
-func prepareDatabase(db *sql.DB) {
-	stmt := `
-	CREATE TABLE IF NOT EXISTS commands (id INTEGER PRIMARY KEY, commandname TEXT UNIQUE, commandresponse TEXT, perm TEXT, count INTEGER);
-	CREATE TABLE IF NOT EXISTS badwords (id INTEGER PRIMARY KEY, phrase TEXT, severity INTEGER);
-	CREATE TABLE IF NOT EXISTS quotes (id INTEGER PRIMARY KEY, quote TEXT, timestamp TEXT, submitter TEXT);
-	CREATE TABLE IF NOT EXISTS ban_history (user TEXT, reason TEXT, timestamp TEXT);
-	CREATE TABLE IF NOT EXISTS chatters (username TEXT PRIMARY KEY, count INT);
-	CREATE TABLE IF NOT EXISTS timers (timername TEXT UNIQUE, message TEXT, minutes INTEGER, enabled INTEGER);
-	`
-	_, err := db.Exec(stmt)
-	if err != nil {
-		log.Fatalf("error running create table statements: %s", err)
-	}
-}
+type DatabasePrepareFunc func(db *sql.DB) error
 
-func Init(path string, sq *Sqlite) error {
+func Init(path string, sq *Sqlite, prepareFunc DatabasePrepareFunc) error {
 	// prepare Sqlite 3 database
 	if _, err := os.Stat(path); os.IsNotExist(err) { // make database file if it doesn't exist
 		os.Create(path)
@@ -43,9 +28,9 @@ func Init(path string, sq *Sqlite) error {
 	}
 
 	sq.db = db
-	prepareDatabase(db) // creates and prepares the bot's database
+	err = prepareFunc(db) // in general this will prepare the schema of the db for a specific service
 
-	return nil
+	return err
 }
 
 // Query takes in a query and returns the resulting rows
