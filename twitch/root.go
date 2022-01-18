@@ -79,16 +79,27 @@ func (t *Twitch) Run() error {
 	reader := bufio.NewReader(t.Bot.Conn)
 	proto := textproto.NewReader(reader)
 
-	defaultActions := setupDefaultActions()
+	fmt.Printf("Connected to Twitch!\nBot: %s\nChannel: %s\n", t.Bot.Name, t.Bot.ChannelName)
 
+	var item bot.Item
 	var line string
-	// keep running as long as the error is not a fatal error
+	// Keep running as long as the error is not a fatal error.
+	// It's likely that all errors encountered will just invoke a 'continue',
+	// so that the for loop condition can determine whether we need to stop or not
 	for !errors.As(err, &bot.FatalError{}) {
 		line, err = proto.ReadLine()
 		if err != nil {
 			continue
 		}
-		err = t.Handler(cleanUpTwitchResponse(line), defaultActions)
+		item, err = newTwitchItem(line)
+		if err != nil {
+			t.Message(err.Error())
+			continue
+		}
+		err = t.Handler(item, setupDefaultActions())
+		if err != nil {
+			continue
+		}
 	}
 
 	return err

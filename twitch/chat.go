@@ -1,9 +1,20 @@
 package twitch
 
 import (
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
+
+	"github.com/liamphmurphy/pleasantbot/bot"
+)
+
+var (
+	typeRegex             = regexp.MustCompile(`^(\![\w]*)$`)                            // regexp for new item of form !itemcommand, such as "!quote" (note the absence of any values / content)
+	commandNoContentRegex = regexp.MustCompile(`^(\![\w]*)\s(.)*\s(\![.\w]*)$`)          // regexp for request of form '!com del !somecommand'
+	fullCommandRegex      = regexp.MustCompile(`^(\![\w]*)\s(.)*\s(\![.\w]*)\s([.\w]*)`) // regexp for request of form '!com add !somecommand this is a test command'
+	errComParse           = errors.New("command invocation failed")
 )
 
 func (t *Twitch) Message(msg string) error {
@@ -12,29 +23,22 @@ func (t *Twitch) Message(msg string) error {
 
 // Handler will contain the root logic for handling any kind of message from twitch; whether from the IRC server itself,
 // or messages from the Twitch chat
-func (t *Twitch) Handler(msg string, defaultActions map[string]ActionTaker) error {
-	var at []ActionTaker
+func (t *Twitch) Handler(item bot.Item, defaultActions []ActionTaker) error {
+	var at ActionTaker
 
 	// see if the message will prompt a default action
-	for k, v := range defaultActions {
-		if msg == k {
-			at = append(at, v)
+	for _, v := range defaultActions {
+		if v.Condition(item, t.Bot) {
+			at = v
 		}
 	}
 
-	if len(at) == 0 {
-		at = append(at, &NoOpAction{})
+	if at == nil {
+		at = &NoOpAction{}
 	}
 
 	// perform actions
-	for _, act := range at {
-		err := act.Action(ActionPayload{}, t.Bot, t)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return at.Action(item, t.Bot, t)
 }
 
 // purges a user by sending a timeout of 1 second
@@ -47,8 +51,43 @@ func (t *Twitch) banUser(username string, reason string) {
 	t.Message(fmt.Sprintf("/ban %s", username))
 }
 
-func cleanUpTwitchResponse(response string) string {
+// newTwitchItem is a parser for the raw return from the bot's net.Conn.
+func newTwitchItem(response string) (bot.Item, error) {
+	// Only time a user sent a message is when PRIVMSG exists
+	// TODO: more performant way of doing this check?
+	if !strings.Contains(response, "PRIVMSG") {
+		return bot.Item{IsServerInfo: true, Contents: response}, nil
+	}
+
 	rawSplit := strings.Split(response, ";")
 	messageSplit := strings.Split(rawSplit[len(rawSplit)-1], ":")
-	return messageSplit[len(messageSplit)-1]
+
+	var item bot.Item
+
+	msg := strings.TrimSpace(messageSplit[len(messageSplit)-1])
+
+	// detect a potential command invocation, if you're confused on what the match means, look at the comments next to the regexp vars
+	if msg[0] == '!' {
+		if typeRegex.MatchString(msg) {
+			item.Type = msg
+		} else if commandNoContentRegex.MatchString(msg) {
+			split := strings.Split(msg, " ")
+			item.Type = split[0]
+			item.Command = split[1]
+			item.Key = split[2]
+		} else if fullCommandRegex.MatchString(msg) {
+			split := strings.Split(msg, " ")
+			item.Type = split[0]
+			item.Command = split[1]
+			item.Key = split[2]
+			item.Contents = strings.Join(split[3:], " ")
+		} else {
+			return bot.Item{}, bot.NonFatalError{Err: errComParse}
+		}
+	} else {
+		// in this case, just a standard chat message
+		item.Contents = msg
+	}
+
+	return item, nil
 }

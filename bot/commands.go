@@ -65,68 +65,6 @@ func (bot *Bot) IncrementCommandCount(command string) error {
 	return nil
 }
 
-// DefaultCommands takes in a potential command request and sees if it is one of the default commands
-/*func (bot *Bot) DefaultCommander(user ser) bool {
-	cmdFound := true
-
-	var item Item
-	if user.Content == "!quote" {
-		item.Key = "quote"
-	}
-	item, err := NewItem(user.Content)
-	if err != nil {
-		return false
-	}
-
-	// TODO: potentially support custom default command invocation keys
-	switch item.Type { // start cycling through potential default commands
-	case "addcom": // add a new custom command
-		err := bot.AddCommand(item)
-		if err == nil {
-			bot.SendTwitchMessage("The new command was added successfully.")
-		} else {
-			bot.SendTwitchMessage(fmt.Sprintf("The bot returned the following error: %s", err))
-		}
-
-	case "delcom":
-		bot.RemoveCommand(item.Key)
-
-	case "quote":
-		if user.Content == "!quote" { // if entire message is just !quote, user is asking for the bot to return a random quote
-			quote, err := bot.RandomQuote()
-			if err != nil {
-				bot.SendTwitchMessage(fmt.Sprintf("Error finding a quote: %s", err))
-				return false
-			}
-			bot.SendTwitchMessage(quote)
-		} else { // otherwise, count on them at least attempting in getting a specific quote
-			id, err := strconv.Atoi(item.Key)
-			if err != nil {
-				bot.SendTwitchMessage("id for the quote must be a valid positive integer")
-			}
-			quote, err := bot.GetQuote(id)
-			if err != nil {
-				bot.SendTwitchMessage(fmt.Sprintf("Error finding a quote: %s", err))
-				return false
-			}
-			bot.SendTwitchMessage(quote)
-		}
-	case "addquote":
-		bot.AddQuote(item.Contents, user.Name)
-	case "subon": // turn on subscribers only mode
-		bot.SendTwitchMessage("/subscribers")
-		bot.SendTwitchMessage("Subscriber only mode is now on.")
-	case "suboff": // turn off subscribers only mode
-		bot.SendTwitchMessage("/subscribersoff")
-		bot.SendTwitchMessage("Subscriber only mode is now off.")
-	default:
-		cmdFound = false
-	}
-
-	return cmdFound
-}
-*/
-
 // LoadCommands queries the sqlite3 database for existing commands
 func (bot *Bot) LoadCommands() error {
 	rows, err := bot.Storage.DB.Query("select commandname, commandresponse, perm from commands")
@@ -142,6 +80,10 @@ func (bot *Bot) LoadCommands() error {
 		if err != nil {
 			return err
 		}
+		if name[0] != '!' {
+			name = fmt.Sprintf("!%s", name)
+		}
+
 		bot.Commands[name] = &CommandValue{Response: response, Perm: perm}
 	}
 	return nil
