@@ -8,9 +8,14 @@ package bot
 // This struct will hold the !command and <contents> values respectively.
 // Each field will hold the value with any leading ! chars removed.
 type Item struct {
-	IsServerInfo bool   // if true, consider item not from user and can be ignored
+	IsServerInfo bool // if true, consider item not from user and can be ignored
+	Sender       User
 	Type         string // ex: com
 	Command      string // ex: add
 	Key          string // ex: !somecommand
 	Contents     string // ex: this is the value of some command
+}
+
+type User struct {
+	Name string
 }

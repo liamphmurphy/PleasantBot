@@ -83,6 +83,7 @@ func (t *Twitch) Run() error {
 
 	var item bot.Item
 	var line string
+
 	// Keep running as long as the error is not a fatal error.
 	// It's likely that all errors encountered will just invoke a 'continue',
 	// so that the for loop condition can determine whether we need to stop or not
@@ -93,7 +94,7 @@ func (t *Twitch) Run() error {
 		}
 		item, err = newTwitchItem(line)
 		if err != nil {
-			t.Message(err.Error())
+			t.Message(fmt.Sprintf("@%s - %s", item.Sender.Name, err.Error()))
 			continue
 		}
 		err = t.Handler(item, setupDefaultActions())

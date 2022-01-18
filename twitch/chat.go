@@ -60,12 +60,18 @@ func newTwitchItem(response string) (bot.Item, error) {
 	}
 
 	rawSplit := strings.Split(response, ";")
+	metadata := make(map[string]string)
+	for _, m := range rawSplit {
+		keyValSplit := strings.Split(m, "=")
+		metadata[keyValSplit[0]] = keyValSplit[1]
+	}
+
 	messageSplit := strings.Split(rawSplit[len(rawSplit)-1], ":")
 
 	var item bot.Item
+	item.Sender.Name = strings.ToLower(metadata["display-name"])
 
 	msg := strings.TrimSpace(messageSplit[len(messageSplit)-1])
-
 	// detect a potential command invocation, if you're confused on what the match means, look at the comments next to the regexp vars
 	if msg[0] == '!' {
 		if typeRegex.MatchString(msg) {
@@ -82,7 +88,7 @@ func newTwitchItem(response string) (bot.Item, error) {
 			item.Key = split[2]
 			item.Contents = strings.Join(split[3:], " ")
 		} else {
-			return bot.Item{}, bot.NonFatalError{Err: errComParse}
+			return bot.Item{Sender: bot.User{Name: item.Sender.Name}}, bot.NonFatalError{Err: errComParse}
 		}
 	} else {
 		// in this case, just a standard chat message
