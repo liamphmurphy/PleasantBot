@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 )
 
@@ -27,9 +28,7 @@ func (bot *Bot) AddQuote(quote string, submitter string) error {
 
 // given the id, generates a string containing the quote, timestamp and submitter
 func (bot *Bot) generateQuoteString(id int) string {
-	fmt.Println("id", id)
 	values := bot.Quotes[id]
-	fmt.Println("topkek", values)
 	return fmt.Sprintf("%s -- %s [submitted by %s]", values.Quote, values.Timestamp, values.Submitter)
 }
 
@@ -62,6 +61,19 @@ func (bot *Bot) LoadQuotes() error {
 		bot.Quotes[id] = &QuoteValues{Quote: quote, Timestamp: timestamp, Submitter: submitter}
 	}
 	return nil
+}
+
+func (bot *Bot) DeleteQuote(quoteID string) error {
+	id, err := strconv.Atoi(quoteID)
+	if err != nil {
+		return err
+	}
+
+	if _, found := bot.Quotes[id]; found {
+		delete(bot.Quotes, id)
+	}
+
+	return bot.Storage.DB.Delete("quotes", "id", quoteID)
 }
 
 // GetQuote returns a quote of a specified index / id. Correlates to the automatically generated ID in sqlite.

@@ -50,7 +50,7 @@ func (sq *Sqlite) Insert(tableName string, columns []string, values []string) er
 
 	// sqlite query needs quotes around string values, there's probably a better way to do this
 	for i := range values {
-		values[i] = "'" + values[i] + "'"
+		values[i] = fmt.Sprintf("'%s'", values[i])
 	}
 
 	// format the columns and values to work with the SQLite insert statement

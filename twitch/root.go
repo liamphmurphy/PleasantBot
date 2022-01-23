@@ -62,7 +62,7 @@ func (t *Twitch) Run() error {
 		return bot.FatalError{Err: err}
 	}
 
-	// Prepate the bot's net.Conn struct
+	// Prepare the bot's net.Conn struct
 	err = t.Bot.Connect()
 	if err != nil {
 		return bot.FatalError{Err: err}
@@ -87,6 +87,7 @@ func (t *Twitch) Run() error {
 	// Keep running as long as the error is not a fatal error.
 	// It's likely that all errors encountered will just invoke a 'continue',
 	// so that the for loop condition can determine whether we need to stop or not
+	// TODO: I should make sure that using errors.As this much doesn't have any negative performance implications
 	for !errors.As(err, &bot.FatalError{}) {
 		line, err = proto.ReadLine()
 		if err != nil {

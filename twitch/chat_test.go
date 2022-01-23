@@ -44,6 +44,21 @@ func TestNewTwitchItem(t *testing.T) {
 			wantItem:    bot.Item{Sender: bot.User{Name: "test-user"}},
 			wantErr:     bot.NonFatalError{Err: errComParse},
 		},
+		{
+			description: "detect a case of Type, Command and Content without a key",
+			inputMsg:    "@badge-info=subscriber/91;badges=broadcaster/1,subscriber/3000,premium/1;client-nonce=2d59456ff9792c4aa9521d53f109091b;color=#D3D3D3;display-name=test-user;emotes=;first-msg=0;flags=;id=a6416f66-c477-47e2-ad6c-44c38a20f919;mod=0;room-id=26692942;subscriber=1;tmi-sent-ts=1642452235079;turbo=0;user-id=26692942;user-type= :test-user!test-user@test-user.tmi.twitch.tv PRIVMSG #test-user :!quote add this is a new quote",
+			wantItem: bot.Item{
+				IsServerInfo: false,
+				Sender: bot.User{
+					Name: "test-user",
+				},
+				Type:     "!quote",
+				Command:  "add",
+				Key:      "",
+				Contents: "this is a new quote",
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, test := range tests {

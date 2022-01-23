@@ -45,24 +45,33 @@ func TestRunDefaultCommands(t *testing.T) {
 			wantResult:  false,
 			wantErr:     nil,
 		},
+		{
+			description: "should process an add default command without a key",
+			defaults:    []DefaultCommand{{Type: "quote", Command: "Add", ExecFunc: stubNoError}},
+			inputItem:   Item{Type: "quote", Command: "add", Contents: "this is a random quote"},
+			wantResult:  true,
+			wantErr:     nil,
+		},
 	}
 	var bot Bot
 	for _, test := range tests {
-		bot.DefaultCommands = test.defaults
-		found, err := bot.RunDefaultCommands(test.inputItem)
-		if test.wantErr == nil {
-			if err != nil {
-				t.Errorf("got a nil error returned but expected: %v", test.wantErr)
+		t.Run(test.description, func(t *testing.T) {
+			bot.DefaultCommands = test.defaults
+			found, err := bot.RunDefaultCommands(test.inputItem)
+			if test.wantErr == nil {
+				if err != nil {
+					t.Errorf("got a nil error returned but expected: %v", test.wantErr)
+				}
 			}
-		}
 
-		// test if we got the expected error (if any)
-		if err != nil && (test.wantErr.Error() != err.Error()) {
-			t.Errorf("did not get an expected error\ngot - %v\nwant - %v", err, test.wantErr)
-		}
+			// test if we got the expected error (if any)
+			if err != nil && (test.wantErr.Error() != err.Error()) {
+				t.Errorf("did not get an expected error\ngot - %v\nwant - %v", err, test.wantErr)
+			}
 
-		if found != test.wantResult {
-			t.Errorf("did not get the expected result\ngot - %v\nwant - %v", found, test.wantResult)
-		}
+			if found != test.wantResult {
+				t.Errorf("did not get the expected result\ngot - %v\nwant - %v", found, test.wantResult)
+			}
+		})
 	}
 }

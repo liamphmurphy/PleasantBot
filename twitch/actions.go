@@ -70,8 +70,11 @@ func (qa *QuoteAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messeng
 	switch item.Command {
 	case "":
 		response, err = bot.RandomQuote()
-	case "add":
+	case "add", "new":
 		err = bot.AddQuote(item.Contents, "nil")
+	case "del", "rm", "delete", "remove":
+		response = fmt.Sprintf("deleted quote with ID: %s", item.Key)
+		err = bot.DeleteQuote(item.Key)
 	}
 
 	if err == nil {
