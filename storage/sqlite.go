@@ -93,7 +93,7 @@ func (sq *Sqlite) Update(tableName, keyColumn, keyValue string, columns, values 
 		setPairs = append(setPairs, fmt.Sprintf("%s = %s", columns[i], values[i]))
 	}
 
-	stmt = fmt.Sprintf(stmt, tableName, strings.Join(setPairs, ",\n"), fmt.Sprintf("%s = %s", keyColumn, keyValue))
+	stmt = fmt.Sprintf(stmt, tableName, strings.Join(setPairs, ",\n"), fmt.Sprintf("%s = '%s'", keyColumn, keyValue))
 
 	return sq.ArbitraryExec(stmt)
 }

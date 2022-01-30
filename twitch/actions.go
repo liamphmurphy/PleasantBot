@@ -33,7 +33,7 @@ func (ca *CommandAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messe
 		switch item.Command {
 		case "add", "new":
 			err = bot.AddCommand(item)
-			if err != nil {
+			if err == nil {
 				response = fmt.Sprintf("%s was successfully added", item.Key)
 			}
 		case "del", "rm", "delete", "remove":
@@ -48,7 +48,7 @@ func (ca *CommandAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messe
 			}
 		case "edit":
 			err = bot.EditCommand(item)
-			if err != nil {
+			if err == nil {
 				response = fmt.Sprintf("'%s' has been updated.", item.Key)
 			}
 		}
@@ -82,12 +82,12 @@ func (qa *QuoteAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messeng
 		response, err = bot.RandomQuote()
 	case "add", "new":
 		err = bot.AddQuote(item.Contents, item.Sender.Name)
-		if err != nil {
+		if err == nil {
 			response = fmt.Sprintf("new quote added by @%s", item.Sender.Name)
 		}
 	case "del", "rm", "delete", "remove":
 		err = bot.DeleteQuote(item.Key)
-		if err != nil {
+		if err == nil {
 			response = fmt.Sprintf("deleted quote with ID: %s", item.Key)
 		}
 	}
