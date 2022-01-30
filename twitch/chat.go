@@ -44,7 +44,7 @@ func (t *Twitch) Handler(item bot.Item, defaultActions []ActionTaker) error {
 		at = &NoOpAction{}
 	}
 
-	// perform actions
+	// perform action
 	return at.Action(item, t.Bot, t)
 }
 

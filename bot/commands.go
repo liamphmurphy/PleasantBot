@@ -55,6 +55,22 @@ func (bot *Bot) RemoveCommand(key string) (bool, error) {
 	return found, nil
 }
 
+func (bot *Bot) EditCommand(item Item) error {
+	_, ok := bot.Commands[item.Key]
+	if !ok {
+		return NonFatalError{Err: fmt.Errorf("could not find command with key '%s'", item.Key)}
+	}
+
+	bot.Commands[item.Key].Response = item.Contents
+	if bot.Storage != nil {
+		err := bot.Storage.DB.Update("commands", "commandname", item.Key, []string{"commandresponse"}, []string{item.Contents})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // IncrementCommandCount takes in a command name (key) and increments the associated count value in the DB
 func (bot *Bot) IncrementCommandCount(command string) error {
 	stmt := fmt.Sprintf("UPDATE commands SET count = count + 1 WHERE commandname = '%s'", command) // prepare statement tring

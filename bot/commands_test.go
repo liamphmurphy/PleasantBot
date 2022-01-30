@@ -42,3 +42,46 @@ func TestFindCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestEditCommand(t *testing.T) {
+	tests := []struct {
+		description string
+		inputItem   Item
+		commands    map[string]*CommandValue
+		wantCommand *CommandValue
+		wantErr     error
+	}{
+		{
+			description: "should succeed to edit a command",
+			inputItem:   Item{Type: "!com", Command: "edit", Key: "!test", Contents: "this is a new response"},
+			commands: map[string]*CommandValue{
+				"!test": {
+					Response: "this is the old response",
+					Perm:     "",
+					Count:    0,
+				},
+			},
+			wantCommand: &CommandValue{Response: "this is a new response", Perm: "", Count: 0},
+			wantErr:     nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			bot := &Bot{Commands: test.commands}
+			err := bot.EditCommand(test.inputItem)
+			if err != nil {
+				if test.wantErr == nil {
+					t.Errorf("did not get the expected err\ngot - %v\nwant - nil", err)
+				} else if err.Error() != test.wantErr.Error() {
+					t.Errorf("did not get the expected error\ngot - %v\nwant - %v", err, test.wantErr)
+				}
+			}
+
+			command, _ := bot.Commands[test.inputItem.Key]
+			if !reflect.DeepEqual(command, test.wantCommand) {
+				t.Errorf("did not get the expected command\ngot - %v\nwant - %v", command, test.wantCommand)
+			}
+		})
+	}
+}

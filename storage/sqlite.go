@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,6 +13,8 @@ import (
 type Sqlite struct {
 	db *sql.DB
 }
+
+var ColValLengthError = errors.New("the columns and values slices must be of the same size")
 
 type InitFunc func(path string, sq *Sqlite, prepareFunc DatabasePrepareFunc) error
 
@@ -43,9 +46,9 @@ func (sq *Sqlite) Query(query string) (*sql.Rows, error) {
 	return rows, nil
 }
 
-func (sq *Sqlite) Insert(tableName string, columns []string, values []string) error {
+func (sq *Sqlite) Insert(tableName string, columns, values []string) error {
 	if len(columns) != len(values) { // columns and values must be the same length
-		return fmt.Errorf("the columns and values arrays must be of the same size")
+		return ColValLengthError
 	}
 
 	// sqlite query needs quotes around string values, there's probably a better way to do this
@@ -67,6 +70,32 @@ func (sq *Sqlite) Insert(tableName string, columns []string, values []string) er
 		return err // if the exact error isn't known, return the original error
 	}
 	return nil
+}
+
+func (sq *Sqlite) Update(tableName, keyColumn, keyValue string, columns, values []string) error {
+	if len(columns) != len(values) {
+		return ColValLengthError
+	}
+
+	// same as Insert; must wrap values in single quotes
+	for i := range values {
+		values[i] = fmt.Sprintf("'%s'", values[i])
+	}
+
+	stmt := `
+	UPDATE %s
+	SET %s
+	WHERE %s
+	`
+
+	var setPairs []string
+	for i := range values {
+		setPairs = append(setPairs, fmt.Sprintf("%s = %s", columns[i], values[i]))
+	}
+
+	stmt = fmt.Sprintf(stmt, tableName, strings.Join(setPairs, ",\n"), fmt.Sprintf("%s = %s", keyColumn, keyValue))
+
+	return sq.ArbitraryExec(stmt)
 }
 
 func (sq *Sqlite) Delete(tableName string, keyColumn string, keyValue string) error {

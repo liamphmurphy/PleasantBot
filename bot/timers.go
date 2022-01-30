@@ -39,6 +39,21 @@ func (bot *Bot) AddTimer(item Item) error {
 	return nil
 }
 
+// DeleteTimer will delete a timer from the map and DB.
+func (bot *Bot) DeleteTimer(item Item) error {
+	if _, ok := bot.Timers[item.Key]; ok {
+		delete(bot.Timers, item.Key)
+		err := bot.Storage.DB.Delete("timers", "timername", item.Key)
+		if err != nil {
+			return FatalError{Err: err}
+		}
+	} else {
+		return NonFatalError{Err: fmt.Errorf("the timer command '%s' does not exist", item.Key)}
+	}
+
+	return nil
+}
+
 // RunTimers will loop over and run any timers in the database that are enabled.
 // A service who wants to use RunTimers must define a Messenger.Message definition so this function knows
 // how to send the timer's contents.

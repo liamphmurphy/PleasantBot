@@ -18,8 +18,6 @@ type CommandAction struct{}
 
 type QuoteAction struct{}
 
-type PingAction struct{}
-
 type TimerAction struct{}
 
 func (ca *CommandAction) Condition(item bot.Item, bot *bot.Bot) bool {
@@ -35,7 +33,9 @@ func (ca *CommandAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messe
 		switch item.Command {
 		case "add", "new":
 			err = bot.AddCommand(item)
-			response = fmt.Sprintf("%s was successfully added", item.Key)
+			if err != nil {
+				response = fmt.Sprintf("%s was successfully added", item.Key)
+			}
 		case "del", "rm", "delete", "remove":
 			var found bool
 			found, err = bot.RemoveCommand(item.Key)
@@ -46,7 +46,13 @@ func (ca *CommandAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messe
 					response = fmt.Sprintf("%s was successfully deleted", item.Key)
 				}
 			}
+		case "edit":
+			err = bot.EditCommand(item)
+			if err != nil {
+				response = fmt.Sprintf("'%s' has been updated.", item.Key)
+			}
 		}
+		// handle finding custom commands
 	} else {
 		found, com := bot.FindCommand(item.Type)
 		if found {
@@ -56,6 +62,8 @@ func (ca *CommandAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messe
 
 	if err == nil {
 		messenger.Message(response)
+	} else {
+		messenger.Message(err.Error())
 	}
 
 	return err
@@ -78,8 +86,10 @@ func (qa *QuoteAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messeng
 			response = fmt.Sprintf("new quote added by @%s", item.Sender.Name)
 		}
 	case "del", "rm", "delete", "remove":
-		response = fmt.Sprintf("deleted quote with ID: %s", item.Key)
 		err = bot.DeleteQuote(item.Key)
+		if err != nil {
+			response = fmt.Sprintf("deleted quote with ID: %s", item.Key)
+		}
 	}
 
 	if err == nil {
@@ -102,7 +112,14 @@ func (ta *TimerAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messeng
 	switch item.Command {
 	case "add", "new":
 		err = bot.AddTimer(item)
-		response = "new timer has been added"
+		if err != nil {
+			response = "new timer has been added"
+		}
+	case "del", "rm", "delete", "remove":
+		err = bot.DeleteTimer(item)
+		if err != nil {
+			response = fmt.Sprintf("'%s' has been removed", item.Key)
+		}
 	}
 
 	if err == nil {
