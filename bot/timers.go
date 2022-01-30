@@ -20,13 +20,21 @@ func (bot *Bot) AddTimer(item Item) error {
 		return fmt.Errorf("a timer with the key %s already exists", item.Key)
 	}
 
+	if item.Key == "" {
+		return NonFatalError{Err: fmt.Errorf("the name for a new timer cannot be empty")}
+	}
+
 	values := strings.Split(item.Contents, " ")
 	minutes, err := strconv.Atoi(values[0])
 	if err != nil {
 		return err
 	}
 
-	bot.Timers[item.Key] = &TimedValue{Minutes: minutes, Message: strings.Join(values[1:], " "), Enabled: true}
+	msg := strings.Join(values[1:], " ")
+	bot.Timers[item.Key] = &TimedValue{Minutes: minutes, Message: msg, Enabled: true}
+	if bot.Storage != nil {
+		bot.Storage.DB.Insert("timers", bot.Storage.TimerColumns, []string{item.Key, msg, strconv.Itoa(minutes), "true"})
+	}
 
 	return nil
 }

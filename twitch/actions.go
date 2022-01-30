@@ -20,6 +20,8 @@ type QuoteAction struct{}
 
 type PingAction struct{}
 
+type TimerAction struct{}
+
 func (ca *CommandAction) Condition(item bot.Item, bot *bot.Bot) bool {
 	return item.Type != ""
 }
@@ -71,7 +73,10 @@ func (qa *QuoteAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messeng
 	case "":
 		response, err = bot.RandomQuote()
 	case "add", "new":
-		err = bot.AddQuote(item.Contents, "nil")
+		err = bot.AddQuote(item.Contents, item.Sender.Name)
+		if err != nil {
+			response = fmt.Sprintf("new quote added by @%s", item.Sender.Name)
+		}
 	case "del", "rm", "delete", "remove":
 		response = fmt.Sprintf("deleted quote with ID: %s", item.Key)
 		err = bot.DeleteQuote(item.Key)
@@ -86,8 +91,27 @@ func (qa *QuoteAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messeng
 	return err
 }
 
-func (pa *PingAction) Condition(item bot.Item, bot *bot.Bot) bool {
-	return true
+func (ta *TimerAction) Condition(item bot.Item, bot *bot.Bot) bool {
+	return item.Type == "!timer"
+}
+
+func (ta *TimerAction) Action(item bot.Item, bot *bot.Bot, messenger bot.Messenger) error {
+	var err error
+	var response string
+
+	switch item.Command {
+	case "add", "new":
+		err = bot.AddTimer(item)
+		response = "new timer has been added"
+	}
+
+	if err == nil {
+		messenger.Message(response)
+	} else {
+		messenger.Message(err.Error())
+	}
+
+	return err
 }
 
 // Action for a NoOpAction returns a nil error, in other words, this is a stub that does nothing
@@ -99,5 +123,5 @@ func (noop *NoOpAction) Condition(item bot.Item, bot *bot.Bot) bool { return tru
 
 // setupDefaultActions prepares the default ActionTaker pipeline items
 func setupDefaultActions() []ActionTaker {
-	return []ActionTaker{&CommandAction{}, &QuoteAction{}}
+	return []ActionTaker{&CommandAction{}, &QuoteAction{}, &TimerAction{}}
 }

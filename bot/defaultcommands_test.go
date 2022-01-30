@@ -45,13 +45,6 @@ func TestRunDefaultCommands(t *testing.T) {
 			wantResult:  false,
 			wantErr:     nil,
 		},
-		{
-			description: "should process an add default command without a key",
-			defaults:    []DefaultCommand{{Type: "quote", Command: "Add", ExecFunc: stubNoError}},
-			inputItem:   Item{Type: "quote", Command: "add", Contents: "this is a random quote"},
-			wantResult:  true,
-			wantErr:     nil,
-		},
 	}
 	var bot Bot
 	for _, test := range tests {

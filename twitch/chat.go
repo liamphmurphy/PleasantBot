@@ -13,11 +13,18 @@ import (
 var (
 	typeRegex             = regexp.MustCompile(`^(\![\w]*)$`)                            // regexp for new item of form !itemcommand, such as "!quote" (note the absence of any values / content)
 	commandNoContentRegex = regexp.MustCompile(`^(\![\w]*)\s(.)*\s(\![.\w]*)$`)          // regexp for request of form '!com del !somecommand'
+	typeCommandNoKeyRegex = regexp.MustCompile(`^(\![\w]*)\s(.)*\s([.\w]*)$`)            // regexp for requests of form '!quote add this is a new quote' (no key present)
 	fullCommandRegex      = regexp.MustCompile(`^(\![\w]*)\s(.)*\s(\![.\w]*)\s([.\w]*)`) // regexp for request of form '!com add !somecommand this is a test command'
 	errComParse           = errors.New("command invocation failed")
 )
 
 func (t *Twitch) Message(msg string) error {
+	// If a caller is passing in this substring, then it is probably trying to make a call that is not a PRIVMSG.
+	// One such case is a PONG.
+	if strings.Contains(msg, ":tmi.twitch.tv") {
+		return t.Bot.WriteToConn(msg)
+	}
+
 	return t.Bot.WriteToConn(fmt.Sprintf("PRIVMSG #%s :%s", t.Bot.ChannelName, msg))
 }
 
@@ -54,7 +61,6 @@ func (t *Twitch) banUser(username string, reason string) {
 // newTwitchItem is a parser for the raw return from the bot's net.Conn.
 func newTwitchItem(response string) (bot.Item, error) {
 	// Only time a user sent a message is when PRIVMSG exists
-	// TODO: more performant way of doing this check?
 	if !strings.Contains(response, "PRIVMSG") {
 		return bot.Item{IsServerInfo: true, Contents: response}, nil
 	}
@@ -87,6 +93,11 @@ func newTwitchItem(response string) (bot.Item, error) {
 			item.Command = split[1]
 			item.Key = split[2]
 			item.Contents = strings.Join(split[3:], " ")
+		} else if typeCommandNoKeyRegex.MatchString(msg) {
+			split := strings.Split(msg, " ")
+			item.Type = split[0]
+			item.Command = split[1]
+			item.Contents = strings.Join(split[2:], " ")
 		} else {
 			return bot.Item{Sender: bot.User{Name: item.Sender.Name}}, bot.NonFatalError{Err: errComParse}
 		}

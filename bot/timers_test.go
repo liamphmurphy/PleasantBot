@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var timers = map[string]*TimedValue{"dup-key": &TimedValue{}}
+var timers = map[string]*TimedValue{"dup-key": {}}
 
 func TestAddTimer(t *testing.T) {
 	tests := []struct {

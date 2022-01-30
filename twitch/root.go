@@ -93,6 +93,11 @@ func (t *Twitch) Run() error {
 		if err != nil {
 			continue
 		}
+		pinged, err := t.Bot.HandlePing(line, "PING :tmi.twitch.tv", "PONG :tmi.twitch.tv", t)
+		if pinged {
+			continue
+		}
+
 		item, err = newTwitchItem(line)
 		if err != nil {
 			t.Message(fmt.Sprintf("@%s - %s", item.Sender.Name, err.Error()))
